@@ -38,9 +38,11 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # Edit .env
-# GITHUB_TOKEN=your_token
-# REPO_FULL_NAME=your_username/your_repo
-# HUGGINGFACE_TOKEN=your_token
+# GITHUB_TOKEN=ghp_your_token_here
+# REPO_FULL_NAME=t2m19102001/github-ai-agent
+# HUGGINGFACE_TOKEN=hf_your_token_here
+# MODE=cloud
+# DEBUG=true
 ```
 
 ### 3. Add GitHub Secrets
