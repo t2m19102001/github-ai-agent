@@ -28,7 +28,7 @@ Một AI Agent tự động cho GitHub Issues sử dụng **Hybrid Mode** - kế
 
 ```bash
 # Clone repo
-git clone https://github.com/YOUR_USERNAME/github-ai-agent.git
+git clone https://github.com/t2m19102001/github-ai-agent.git
 cd github-ai-agent
 
 # Install dependencies
