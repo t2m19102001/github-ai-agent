@@ -4,9 +4,9 @@ RAG for entire codebase using Chroma + OllamaEmbeddings
 Provides semantic search across the repository
 """
 
-from langchain.vectorstores import Chroma
-from langchain.embeddings import OllamaEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_ollama import OllamaEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 import glob
 
@@ -26,22 +26,20 @@ def index_repo(path="."):
     """
     global vectordb
     
+    print("Đang index toàn bộ repo... (chỉ chạy lần đầu)")
+    
     # Collect all Python files recursively
-    files = glob.glob("**/*.py", recursive=True)
+    files = [f for f in glob.glob("**/*.py", recursive=True) if not f.startswith(".chroma") and os.path.getsize(f) < 1_000_000]
+    
     texts, metadatas = [], []
     
     for f in files:
-        # Skip files larger than 1MB
-        if os.path.getsize(f) > 1_000_000:
-            continue
-        
         try:
             with open(f, "r", encoding="utf-8", errors="ignore") as file:
-                source = file.read()
-                # Store metadata about the source file
+                texts.append(file.read())
                 metadatas.append({"source": f})
-        except Exception:
-            continue
+        except:
+            pass
     
     # Split documents into chunks
     splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
@@ -50,6 +48,7 @@ def index_repo(path="."):
     # Create or update vector store
     vectordb = Chroma.from_documents(docs, embedder, persist_directory=".chroma")
     vectordb.persist()
+    print("Index xong!")
 
 
 def retrieve(query, k=15):
@@ -78,3 +77,27 @@ def retrieve(query, k=15):
     
     # Format results for context
     return "\n\n".join([f"File {r.metadata['source']}:\n{r.page_content}" for r in results])
+
+
+def get_context(question, k=15):
+    """
+    Get context from codebase for a question
+    Wrapper around retrieve() for better naming
+    
+    Args:
+        question: User's question
+        k: Number of results (default: 15)
+    
+    Returns:
+        Formatted context string
+    """
+    global vectordb
+    
+    if vectordb is None:
+        if os.path.exists(".chroma"):
+            vectordb = Chroma(persist_directory=".chroma", embedding_function=embedder)
+        else:
+            index_repo()
+    
+    results = vectordb.similarity_search(question, k=k)
+    return "\n\n".join([f"File: {r.metadata['source']}:\n{r.page_content}" for r in results])

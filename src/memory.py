@@ -4,8 +4,8 @@ Long-term Memory System using Chroma Vector Store
 Stores and retrieves conversation history for context-aware responses
 """
 
-from langchain.vectorstores import Chroma
-from langchain.embeddings import OllamaEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_ollama import OllamaEmbeddings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)

@@ -11,7 +11,7 @@ from src.agents.base import Agent, LLMProvider
 from src.utils.logger import get_logger
 from src.core.config import PROJECT_ROOT, CODE_EXTENSIONS
 from src.tools.tools import FileReadTool, FileWriteTool, ListFilesTool
-from src.tools.codebase_rag import retrieve
+from src.tools.codebase_rag import retrieve, get_context
 from src.tools.git_tool import GitCommitTool, GitBranchTool, GitStatusTool
 from src.tools.autofix_tool import AutoFixTool, PytestTool
 from src.memory import save_memory, get_memory
@@ -125,7 +125,7 @@ class CodeChatAgent(Agent):
         
         # 2. Retrieve relevant code snippets using RAG
         try:
-            rag_context = retrieve(user_message, k=15)
+            rag_context = get_context(user_message, k=15)
             logger.info(f"✅ RAG retrieved relevant code snippets")
         except Exception as e:
             logger.warning(f"⚠️ RAG retrieval failed: {e}")

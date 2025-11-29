@@ -1,137 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub AI Agent - Real-time Chat</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Copilot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
-<body class="bg-gray-900 text-white">
-    <div class="container mx-auto p-4 max-w-4xl">
-        <h1 class="text-3xl font-bold mb-6 text-center">🤖 GitHub AI Agent</h1>
-        
-        <!-- Chat Messages Container -->
-        <div id="messages" class="bg-gray-800 rounded-lg p-4 h-96 overflow-y-auto mb-4 space-y-4">
-            <!-- Messages will appear here -->
-        </div>
-        
-        <!-- Input Form -->
-        <div class="flex gap-2">
-            <input 
-                type="text" 
-                id="messageInput"
-                placeholder="Ask me anything about your code..."
-                class="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onkeypress="if(event.key === 'Enter') sendMessage()"
-            />
-            <button 
-                onclick="sendMessage()"
-                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition"
-            >
-                Send
-            </button>
-        </div>
-        
-        <div class="mt-4 text-center text-gray-400 text-sm">
-            <span id="status">🟢 Connected</span> | Real-time streaming powered by WebSocket
-        </div>
+<body class="bg-gray-900 text-gray-100">
+  <div class="max-w-4xl mx-auto p-6 h-screen flex flex-col">
+    <h1 class="text-3xl font-bold text-center mb-8 text-cyan-400">My Private Copilot</h1>
+    
+    <div id="chat" class="flex-1 overflow-y-auto mb-4 space-y-4"></div>
+    
+    <form id="form" class="flex gap-3">
+      <input type="text" id="msg" autocomplete="off" placeholder="Gõ /help để xem commands | /autofix | commit nhé | tạo branch..." 
+             class="flex-1 bg-gray-800 rounded-lg px-5 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"/>
+      <button type="submit" class="bg-cyan-600 hover:bg-cyan-500 px-8 py-3 rounded-lg font-medium">Gửi</button>
+    </form>
+    <div class="text-center text-sm text-gray-500 mt-2">
+      💡 Commands: <span class="text-cyan-400">/help</span> | <span class="text-cyan-400">/autofix</span> | <span class="text-cyan-400">/test</span> | <span class="text-cyan-400">commit nhé</span>
     </div>
+  </div>
 
-    <script>
-        // WebSocket connection
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        const messagesDiv = document.getElementById('messages');
-        const messageInput = document.getElementById('messageInput');
-        const statusDiv = document.getElementById('status');
-        
-        let currentResponse = null;
-        let sessionId = null;
-        
-        ws.onopen = () => {
-            console.log('✅ WebSocket connected');
-            statusDiv.innerHTML = '🟢 Connected';
-        };
-        
-        ws.onclose = () => {
-            console.log('❌ WebSocket disconnected');
-            statusDiv.innerHTML = '🔴 Disconnected';
-        };
-        
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            statusDiv.innerHTML = '⚠️ Error';
-        };
-        
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'session') {
-                    // Store session ID
-                    sessionId = data.session_id;
-                    console.log('📝 Session ID:', sessionId.substring(0, 8));
-                    statusDiv.innerHTML = `🟢 Connected (Session: ${sessionId.substring(0, 8)})`;
-                    
-                } else if (data.type === 'start') {
-                    // Create new response div
-                    currentResponse = document.createElement('div');
-                    currentResponse.className = 'bg-gray-700 p-3 rounded-lg';
-                    currentResponse.innerHTML = '<div class="font-bold text-blue-400 mb-1">🤖 AI Agent:</div><div class="text-content"></div>';
-                    messagesDiv.appendChild(currentResponse);
-                    
-                } else if (data.type === 'chunk') {
-                    // Append streaming text
-                    if (currentResponse) {
-                        const contentDiv = currentResponse.querySelector('.text-content');
-                        contentDiv.textContent += data.content;
-                        // Auto-scroll to bottom
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                    }
-                    
-                } else if (data.type === 'end') {
-                    // Message complete
-                    currentResponse = null;
-                    
-                } else if (data.type === 'message') {
-                    // Full message (fallback)
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'bg-gray-700 p-3 rounded-lg';
-                    msgDiv.innerHTML = `<div class="font-bold text-blue-400 mb-1">🤖 AI Agent:</div><div>${data.content}</div>`;
-                    messagesDiv.appendChild(msgDiv);
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                }
-            } catch (e) {
-                // Fallback for plain text messages
-                console.warn('Non-JSON message:', event.data);
-            }
-        };
-        
-        function sendMessage() {
-            const message = messageInput.value.trim();
-            if (!message) return;
-            
-            // Add user message to UI
-            const userMsg = document.createElement('div');
-            userMsg.className = 'bg-blue-900 p-3 rounded-lg';
-            userMsg.innerHTML = `<div class="font-bold text-blue-300 mb-1">👤 You:</div><div>${message}</div>`;
-            messagesDiv.appendChild(userMsg);
-            
-            // Send to WebSocket (as JSON with session context)
-            ws.send(JSON.stringify({
-                message: message,
-                session_id: sessionId
-            }));
-            
-            // Reset for new response
-            currentResponse = null;
-            
-            // Clear input
-            messageInput.value = '';
-            
-            // Auto-scroll
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-    </script>
+  <script>
+    const sessionId = "{{ request.client.host }}-" + Date.now();
+    const ws = new WebSocket(`ws://${location.host}/ws/${sessionId}`);
+    
+    ws.onmessage = (event) => {
+      const chat = document.getElementById("chat");
+      const div = document.createElement("div");
+      div.className = "bg-gray-800 rounded-lg p-4 max-w-3xl ml-auto";
+      div.textContent = event.data;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    document.getElementById("form").onsubmit = (e) => {
+      e.preventDefault();
+      const input = document.getElementById("msg");
+      if (!input.value.trim()) return;
+
+      // Hiển thị tin nhắn người dùng
+      const chat = document.getElementById("chat");
+      const userDiv = document.createElement("div");
+      userDiv.className = "bg-cyan-900 rounded-lg p-4 max-w-3xl mr-auto";
+      userDiv.textContent = input.value;
+      chat.appendChild(userDiv);
+
+      ws.send(input.value);
+      input.value = "";
+      chat.scrollTop = chat.scrollHeight;
+    };
+  </script>
 </body>
 </html>
