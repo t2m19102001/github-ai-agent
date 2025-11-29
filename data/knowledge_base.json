@@ -1,0 +1,180 @@
+[
+  {
+    "id": "7b507eb25e66",
+    "category": "odoo",
+    "topic": "module_structure",
+    "title": "Odoo Module Directory Structure",
+    "content": "\nCấu trúc chuẩn của một Odoo module:\n\n```\nmy_module/\n├── __init__.py              # Package init, khai báo models\n├── __manifest__.py          # Module metadata (name, version, dependencies)\n├── models/\n│   ├── __init__.py\n│   └── my_model.py          # Inherit from models.Model\n├── views/\n│   ├── my_model_views.xml   # Form, Tree, Search views\n│   └── my_model_actions.xml # Action definitions\n├── controllers/\n│   ├── __init__.py\n│   └── main.py              # HTTP routes\n├── static/\n│   ├── css/\n│   └── js/\n├── data/\n│   └── data.xml             # Default data\n├── security/\n│   └── ir.model.access.csv  # Access rights\n├── reports/\n│   └── my_report.xml        # Reporting\n└── i18n/\n    └── vi_VN.po             # Translations\n```\n\nMỗi directory có mục đích cụ thể:\n- **models/**: Business logic, data models\n- **views/**: UI templates (XML)\n- **controllers/**: Web routes, API endpoints\n- **static/**: CSS, JavaScript assets\n- **security/**: Access control rules\n- **data/**: Initial data loading\n                ",
+    "tags": [
+      "odoo",
+      "module",
+      "structure",
+      "basics"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.118462",
+    "updated_at": "2025-11-29T20:03:11.118462",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "3a8b64eff02d",
+    "category": "odoo",
+    "topic": "module_development",
+    "title": "Creating Odoo Models and Fields",
+    "content": "\nTạo models trong Odoo:\n\n```python\nfrom odoo import models, fields\n\nclass SaleOrder(models.Model):\n    _name = 'sale.order'\n    _description = 'Sale Order'\n    _order = 'date_order desc'\n    \n    # Fields\n    name = fields.Char(string='Order Reference', required=True, copy=False)\n    date_order = fields.Datetime(string='Order Date', default=fields.Datetime.now)\n    customer_id = fields.Many2one('res.partner', string='Customer', required=True)\n    order_lines = fields.One2many('sale.order.line', 'order_id', string='Order Lines')\n    total_amount = fields.Float(string='Total', compute='_compute_total')\n    \n    # Computed fields\n    @api.depends('order_lines.subtotal')\n    def _compute_total(self):\n        for record in self:\n            record.total_amount = sum(line.subtotal for line in record.order_lines)\n    \n    # Methods\n    def action_confirm(self):\n        # Xử lý xác nhận đơn hàng\n        self.state = 'confirmed'\n```\n\nCác loại field phổ biến:\n- **Char**: String field\n- **Text**: Long text\n- **Integer**: Integer number\n- **Float**: Decimal number\n- **Boolean**: True/False\n- **Date/Datetime**: Date and time\n- **Selection**: Dropdown list\n- **Many2one**: Link to another record\n- **One2many**: Reverse relationship\n- **Many2many**: Multiple relationships\n                ",
+    "tags": [
+      "odoo",
+      "models",
+      "fields",
+      "development"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.120017",
+    "updated_at": "2025-11-29T20:03:11.120017",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "ee47e182f23b",
+    "category": "odoo",
+    "topic": "access_control",
+    "title": "Odoo Security and Access Control",
+    "content": "\nQuản lý quyền truy cập trong Odoo:\n\n**1. Model Access (ir.model.access.csv)**\n```csv\nid,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink\naccess_sale_order_user,Sale Order User,sale.model_sale_order,sales_team.group_sale_user,1,1,1,0\naccess_sale_order_manager,Sale Order Manager,sale.model_sale_order,sales_team.group_sale_manager,1,1,1,1\n```\n\n**2. Record Rules (Domain-based)**\n```python\nclass SaleOrderRules(models.Model):\n    _inherit = 'ir.rule'\n    \n    # User chỉ thấy đơn hàng của chính mình\n    _sql_constraints = [\n        ('sale_order_company_unique', 'unique (sale_order_id, company_id)', \n         'A sale order must be unique per company'),\n    ]\n```\n\n**3. Field-level Security**\n```python\nname = fields.Char(string='Name', groups='sales_team.group_sale_manager')\n# Field này chỉ visible cho managers\n```\n\nBest practices:\n- Luôn tạo security rules cho models mới\n- Kiểm tra permissions trong methods\n- Sử dụng domain-based rules cho record-level security\n                ",
+    "tags": [
+      "odoo",
+      "security",
+      "access_control",
+      "best_practices"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.120312",
+    "updated_at": "2025-11-29T20:03:11.120312",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "4436252b13be",
+    "category": "python",
+    "topic": "performance_optimization",
+    "title": "Python Performance Optimization Techniques",
+    "content": "\nTối ưu hóa performance Python:\n\n**1. Database Query Optimization**\n- Sử dụng `.select_related()` cho ForeignKey relationships\n- Sử dụng `.prefetch_related()` cho reverse ForeignKey và ManyToMany\n- Sử dụng `.only()` để lấy chỉ những fields cần thiết\n- Thêm database indexes cho các fields được query thường xuyên\n\n```python\n# BAD - N+1 queries\nfor order in Order.objects.all():\n    print(order.customer.name)  # Query lại cho mỗi order\n\n# GOOD - 1 query\norders = Order.objects.select_related('customer')\nfor order in orders:\n    print(order.customer.name)  # Dữ liệu đã cached\n```\n\n**2. Caching Strategy**\n- Use Redis cho session caching\n- Cache expensive computations\n- Implement cache invalidation\n\n**3. Code Efficiency**\n- Tránh nested loops (O(n²))\n- Dùng list comprehensions\n- Lazy load resources\n- Use generators cho large datasets\n\n**4. Profiling**\n- Python cProfile\n- Line profiler\n- Memory profiler\n                ",
+    "tags": [
+      "python",
+      "performance",
+      "optimization",
+      "database"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.120539",
+    "updated_at": "2025-11-29T20:03:11.120539",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "bbaea28bbdf2",
+    "category": "python",
+    "topic": "async_programming",
+    "title": "Async/Await and Concurrency in Python",
+    "content": "\nLập trình bất đồng bộ trong Python:\n\n**1. Basic Async/Await**\n```python\nimport asyncio\n\nasync def fetch_data():\n    # Simulate I/O operation\n    await asyncio.sleep(1)\n    return \"data\"\n\nasync def main():\n    result = await fetch_data()\n    print(result)\n\nasyncio.run(main())\n```\n\n**2. Concurrent Execution**\n```python\nasync def main():\n    # Execute multiple tasks concurrently\n    results = await asyncio.gather(\n        fetch_data(),\n        fetch_data(),\n        fetch_data()\n    )\n    return results\n```\n\n**3. Error Handling**\n```python\nasync def safe_fetch():\n    try:\n        result = await fetch_data()\n    except asyncio.TimeoutError:\n        print(\"Request timeout\")\n    except Exception as e:\n        print(f\"Error: {e}\")\n```\n\n**4. Async Context Managers**\n```python\nasync with aiohttp.ClientSession() as session:\n    async with session.get(url) as resp:\n        data = await resp.json()\n```\n\nBenefits:\n- Better throughput cho I/O-bound operations\n- Responsive applications\n- Scalable server design\n                ",
+    "tags": [
+      "python",
+      "async",
+      "concurrency",
+      "performance"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.120766",
+    "updated_at": "2025-11-29T20:03:11.120766",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "e68f9e4ff85c",
+    "category": "architecture",
+    "topic": "layered_architecture",
+    "title": "Layered Architecture Pattern",
+    "content": "\nMô hình kiến trúc phân lớp:\n\n```\n┌─────────────────────────────┐\n│   Presentation Layer        │ (Controllers, Views, API)\n├─────────────────────────────┤\n│   Business Logic Layer       │ (Services, Business Rules)\n├─────────────────────────────┤\n│   Persistence Layer          │ (DAOs, Database Access)\n├─────────────────────────────┤\n│   Infrastructure Layer       │ (Utilities, Configuration)\n└─────────────────────────────┘\n```\n\n**Advantages:**\n- Separation of Concerns\n- Easy to test each layer independently\n- Allows parallel development\n- Clear dependencies\n\n**Implementation in Odoo:**\n```\nviews/ (Presentation)\n  ↓\ncontrollers/ (Business Logic)\n  ↓\nmodels/ (Persistence)\n  ↓\ndata/ (Infrastructure)\n```\n\n**Best Practices:**\n- Each layer should have clear boundaries\n- Minimize cross-layer dependencies\n- Use dependency injection\n- Document layer responsibilities\n                ",
+    "tags": [
+      "architecture",
+      "design_patterns",
+      "layered",
+      "best_practices"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.121369",
+    "updated_at": "2025-11-29T20:03:11.121369",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "01607a53e855",
+    "category": "architecture",
+    "topic": "microservices",
+    "title": "Microservices Architecture Principles",
+    "content": "\nNguyên lý kiến trúc Microservices:\n\n**1. Service Independence**\n- Mỗi service là independent deployable unit\n- Có database riêng\n- Độc lập về technology stack\n\n**2. Communication Patterns**\n- Synchronous: REST API, gRPC\n- Asynchronous: Message queues (RabbitMQ, Kafka)\n\n**3. API Gateway**\n- Single entry point\n- Request routing\n- Authentication/Authorization\n- Rate limiting\n\n**4. Service Discovery**\n- Services tìm nhau qua service registry\n- Automatic load balancing\n- Health checking\n\n**5. Data Management**\n- Database per service pattern\n- Event sourcing cho data consistency\n- Distributed transactions (saga pattern)\n\n**Challenges:**\n- Complexity\n- Distributed debugging\n- Network latency\n- Data consistency\n\n**When to use:**\n- Large, complex applications\n- Multiple teams\n- Different scaling requirements\n- Technology diversity needs\n                ",
+    "tags": [
+      "architecture",
+      "microservices",
+      "design_patterns",
+      "scalability"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.121592",
+    "updated_at": "2025-11-29T20:03:11.121592",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "23b651dd8a64",
+    "category": "best_practices",
+    "topic": "code_review",
+    "title": "Code Review Best Practices",
+    "content": "\nQuy trình review code hiệu quả:\n\n**1. Pre-review (Author)**\n- Code tự test trước\n- Follow style guide\n- Viết meaningful commit messages\n- Add comments cho logic phức tạp\n\n**2. Review Process**\n- Check logic correctness\n- Look for performance issues\n- Verify security\n- Check error handling\n- Review test coverage\n\n**3. Feedback**\n- Be constructive\n- Ask questions instead of demanding\n- Suggest improvements\n- Explain reasoning\n\n**4. Common Issues to Check**\n- ✓ Error handling\n- ✓ SQL injection vulnerabilities\n- ✓ Race conditions\n- ✓ Memory leaks\n- ✓ Missing logging\n- ✓ Hard-coded values\n- ✓ Inefficient algorithms\n\n**Tools:**\n- GitHub Pull Requests\n- GitLab Merge Requests\n- Gerrit\n- Upsource\n                ",
+    "tags": [
+      "best_practices",
+      "code_review",
+      "quality"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.121799",
+    "updated_at": "2025-11-29T20:03:11.121799",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "ee023db32d13",
+    "category": "best_practices",
+    "topic": "testing",
+    "title": "Testing Strategy and Approaches",
+    "content": "\nChiến lược testing toàn diện:\n\n**1. Unit Testing**\n- Test individual functions/methods\n- Use mocking for dependencies\n- Aim for >80% coverage\n```python\ndef test_calculate_total():\n    order = Order(items=[Item(10), Item(20)])\n    assert order.calculate_total() == 30\n```\n\n**2. Integration Testing**\n- Test interactions between components\n- Use test database\n- Test API endpoints\n\n**3. End-to-End Testing**\n- Test complete user workflows\n- Automated UI testing\n- Test data fixtures\n\n**4. Performance Testing**\n- Load testing\n- Stress testing\n- Benchmark critical paths\n\n**5. Security Testing**\n- SQL injection attempts\n- XSS vulnerabilities\n- Authentication/authorization\n- Data validation\n\n**Tools:**\n- pytest\n- unittest\n- Selenium\n- JMeter\n- OWASP ZAP\n\n**Coverage Goals:**\n- Critical paths: 100%\n- Core business logic: >80%\n- Overall: >70%\n                ",
+    "tags": [
+      "best_practices",
+      "testing",
+      "quality_assurance"
+    ],
+    "source": "codebase",
+    "created_at": "2025-11-29T20:03:11.122007",
+    "updated_at": "2025-11-29T20:03:11.122007",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  },
+  {
+    "id": "77347f49520d",
+    "category": "odoo",
+    "topic": "api_development",
+    "title": "Building Custom APIs in Odoo",
+    "content": "# Building Custom APIs in Odoo\n\n## Create API endpoint\n\n```python\nfrom odoo import http\nfrom odoo.http import request\n\nclass SaleAPI(http.Controller):\n    @http.route(/api/sales, auth=public, type=json)\n    def get_sales(self):\n        orders = request.env[sale.order].search([])\n        return {\n            status: success,\n            data: [\n                {\n                    id: order.id,\n                    name: order.name,\n                    total: order.amount_total\n                }\n                for order in orders\n            ]\n        }\n```\n\n## API best practices:\n- Use proper HTTP methods (GET, POST, PUT, DELETE)\n- Return JSON responses\n- Include status codes\n- Add authentication\n- Validate input data",
+    "tags": [
+      "odoo",
+      "api",
+      "rest",
+      "development"
+    ],
+    "source": "user_feedback",
+    "created_at": "2025-11-29T20:42:32.479318",
+    "updated_at": "2025-11-29T20:42:32.479318",
+    "relevance_score": 1.0,
+    "usage_count": 0
+  }
+]

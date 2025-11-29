@@ -1,0 +1,12 @@
+.vscode
+.vscode-test
+node_modules
+.git
+.gitignore
+*.vsix
+**/*.map
+**/*.ts
+!**/*.d.ts
+.DS_Store
+.vscode-test/
+.vscode/

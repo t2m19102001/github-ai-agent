@@ -1,0 +1,20 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy extension files
+COPY vscode-extension/ .
+
+# Install dependencies
+RUN npm ci
+
+# Build the extension
+RUN npm run esbuild
+
+# Package the extension
+RUN npm run package
+
+# Output directory
+RUN mkdir -p /output && cp *.vsix /output/ 2>/dev/null || true
+
+CMD ["tail", "-f", "/dev/null"]
