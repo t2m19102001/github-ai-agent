@@ -9,8 +9,13 @@ from pathlib import Path
 from typing import Optional, List
 from src.agents.base import Agent, LLMProvider
 from src.utils.logger import get_logger
-from src.config import PROJECT_ROOT, CODE_EXTENSIONS
+from src.core.config import PROJECT_ROOT, CODE_EXTENSIONS
 from src.tools.tools import FileReadTool, FileWriteTool, ListFilesTool
+from src.tools.codebase_rag import retrieve
+from src.tools.git_tool import GitCommitTool, GitBranchTool, GitStatusTool
+from src.tools.autofix_tool import AutoFixTool, PytestTool
+from src.memory import save_memory, get_memory
+import uuid
 
 logger = get_logger(__name__)
 
@@ -25,12 +30,22 @@ class CodeChatAgent(Agent):
         )
         self.llm = llm_provider
         self.project_files = []
+        self.session_id = str(uuid.uuid4())  # Unique session ID
         self.load_project_files()
         
         # Register tools
         self.register_tool(FileReadTool())
         self.register_tool(FileWriteTool())
         self.register_tool(ListFilesTool())
+        
+        # Register Git tools
+        self.register_tool(GitCommitTool())
+        self.register_tool(GitBranchTool())
+        self.register_tool(GitStatusTool())
+        
+        # Register Auto-fix tools
+        self.register_tool(AutoFixTool(agent=self))
+        self.register_tool(PytestTool())
     
     def load_project_files(self):
         """Load all code files from project"""
@@ -99,8 +114,37 @@ class CodeChatAgent(Agent):
         return True
     
     def chat(self, user_message: str) -> str:
-        """Main chat interface"""
-        return self.run(user_message)
+        """Main chat interface with RAG-enhanced context and long-term memory"""
+        # 1. Retrieve long-term memory
+        try:
+            memory_context = get_memory(self.session_id, k=20)
+            logger.info(f"✅ Retrieved memory for session: {self.session_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ Memory retrieval failed: {e}")
+            memory_context = ""
+        
+        # 2. Retrieve relevant code snippets using RAG
+        try:
+            rag_context = retrieve(user_message, k=15)
+            logger.info(f"✅ RAG retrieved relevant code snippets")
+        except Exception as e:
+            logger.warning(f"⚠️ RAG retrieval failed: {e}")
+            rag_context = ""
+        
+        # 3. Build prompt with both memory and RAG context
+        prompt = f"""# Previous conversation:\n{memory_context}\n\n# Codebase context:\n{rag_context}\n\n# Question: {user_message}"""
+        
+        # 4. Get response from agent
+        response = self.run(prompt)
+        
+        # 5. Save to memory
+        try:
+            save_memory(self.session_id, user_message, response)
+            logger.info(f"💾 Saved conversation to memory")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save memory: {e}")
+        
+        return response
     
     def _get_system_prompt(self) -> str:
         """Get system prompt for code assistant"""
@@ -111,11 +155,19 @@ class CodeChatAgent(Agent):
 - Viết code mới theo yêu cầu
 - Debug vấn đề và lỗi
 - Trả lời câu hỏi chi tiết về codebase
+- Thực hiện Git operations (commit, branch, status)
 
 Available tools:
 - read_file: Đọc file content
 - write_file: Tạo/chỉnh sửa file
 - list_files: Liệt kê tất cả files
+- git_commit: Commit changes với message (ví dụ: /git_commit "fix bug")
+- git_create_branch: Tạo branch mới (ví dụ: /git_create_branch "feature-x")
+- git_status: Kiểm tra Git status
+- auto_fix: Tự động test và fix code (max 5 vòng) (ví dụ: /autofix)
+- run_pytest: Chạy pytest với arguments
 
+Khi user yêu cầu commit hoặc tạo branch, hãy sử dụng Git tools tự động.
+Khi user yêu cầu auto-fix hoặc test & fix, hãy sử dụng auto_fix tool.
 Luôn cố gắng được hữu ích, cụ thể, và chuyên nghiệp.
 Khi được yêu cầu sửa code, hãy trả lời chi tiết."""

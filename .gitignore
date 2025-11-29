@@ -41,3 +41,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+# RAG vector store
+.chroma/
+
+# Long-term memory store
+.memory/

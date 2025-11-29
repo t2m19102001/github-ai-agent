@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.utils.logger import get_logger, setup_logging
-from src.config import validate_config, print_config, ENV, DEBUG
+from src.core.config import validate_config, print_config, ENV, DEBUG
 
 logger = get_logger(__name__)
 

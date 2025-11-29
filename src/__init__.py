@@ -7,7 +7,7 @@ __version__ = "2.0.0"
 __author__ = "Your Name"
 __license__ = "MIT"
 
-from src.config import (
+from src.core.config import (
     DEBUG,
     ENV,
     GITHUB_TOKEN,

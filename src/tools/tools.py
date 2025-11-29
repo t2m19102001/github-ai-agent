@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from src.agents.base import Tool
 from src.utils.logger import get_logger
-from src.config import PROJECT_ROOT, ALLOWED_FILE_EXTENSIONS, MAX_FILE_SIZE
+from src.core.config import PROJECT_ROOT, ALLOWED_FILE_EXTENSIONS, MAX_FILE_SIZE
 
 logger = get_logger(__name__)
 

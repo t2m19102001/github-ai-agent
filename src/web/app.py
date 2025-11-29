@@ -9,7 +9,7 @@ import json
 import hmac
 import hashlib
 from src.utils.logger import get_logger
-from src.config import DEBUG, CHAT_PORT, GITHUB_TOKEN, REPO_FULL_NAME
+from src.core.config import DEBUG, CHAT_PORT, GITHUB_TOKEN, REPO_FULL_NAME
 from src.llm.groq import GroqProvider
 from src.agents.code_agent import CodeChatAgent
 from src.agents.pr_agent import GitHubPRAgent
@@ -25,6 +25,10 @@ def create_app():
     """Create and configure Flask app"""
     app = Flask(__name__, template_folder='../../templates')
     CORS(app)
+    
+    # Initialize authentication and rate limiting
+    from src.web.auth import get_limiter, create_token, optional_auth, require_auth
+    limiter = get_limiter(app)
     
     # Register blueprints
     app.register_blueprint(dashboard_bp)
@@ -46,6 +50,37 @@ def create_app():
     def index():
         """Serve chat interface"""
         return render_template('chat.html')
+    
+    # Authentication endpoints
+    @app.route('/api/auth/login', methods=['POST'])
+    @limiter.limit("10 per minute")
+    def login():
+        """Login and get JWT token"""
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        # Simple auth (replace with real user database)
+        if username and password:
+            # Generate token
+            token = create_token(user_id=username, username=username)
+            return jsonify({
+                "status": "success",
+                "token": token,
+                "expires_in": "24 hours"
+            })
+        else:
+            return jsonify({"error": "Invalid credentials"}), 401
+    
+    @app.route('/api/auth/verify', methods=['GET'])
+    @require_auth
+    def verify_token():
+        """Verify token is valid"""
+        return jsonify({
+            "status": "success",
+            "user_id": request.user_id,
+            "username": request.username
+        })
     
     def analyze_code_locally(code_content, filename=""):
         """Perform local code analysis without external API"""
@@ -129,8 +164,14 @@ def create_app():
         return analysis
 
     @app.route('/api/chat', methods=['POST'])
+    @limiter.limit("60 per hour")
+    @optional_auth
     def chat():
         """Handle chat requests with modes and file uploads"""
+        # Log authentication status
+        is_auth = getattr(request, 'is_authenticated', False)
+        logger.info(f"💬 Chat request (authenticated: {is_auth})")
+        
         try:
             # Handle both JSON and form data
             if request.is_json:

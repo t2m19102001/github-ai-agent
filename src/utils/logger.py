@@ -7,7 +7,7 @@ Centralized logging for the entire application
 import logging
 import logging.handlers
 from pathlib import Path
-from src.config import LOG_LEVEL, LOG_FORMAT, LOG_FILE, DEBUG
+from src.core.config import LOG_LEVEL, LOG_FORMAT, LOG_FILE, DEBUG
 
 
 def setup_logging():

@@ -16,13 +16,13 @@ class TestConfig:
     
     def test_config_loads(self):
         """Test that config loads without error"""
-        from src.config import DEBUG, GITHUB_TOKEN, REPO_FULL_NAME
+        from src.core.config import DEBUG, GITHUB_TOKEN, REPO_FULL_NAME
         assert GITHUB_TOKEN is not None
         assert REPO_FULL_NAME is not None
     
     def test_groq_configured(self):
         """Test GROQ API key is configured"""
-        from src.config import GROQ_API_KEY
+        from src.core.config import GROQ_API_KEY
         assert GROQ_API_KEY is not None
 
 
@@ -74,7 +74,7 @@ class TestTools:
         """Test file reading tool"""
         from src.tools.tools import FileReadTool
         tool = FileReadTool()
-        content = tool.execute("src/config.py")
+        content = tool.execute("src/core/config.py")
         assert content is not None
         assert len(content) > 0
 

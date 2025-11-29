@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Code and command executors
-Allows agents to execute Python code and shell commands safely
+Code and command executors - SECURE VERSION
+No shell=True - RCE Prevention
 """
 
 import subprocess
 import sys
 from typing import Dict, Any
 from src.agents.base import Executor
+from src.tools.secure_executor import get_secure_executor
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -18,10 +19,11 @@ class PythonExecutor(Executor):
     
     def __init__(self):
         super().__init__(name="python")
+        self.secure_executor = get_secure_executor()
     
     def execute(self, code: str, timeout: int = 10) -> Dict[str, Any]:
         """
-        Execute Python code
+        Execute Python code securely (no shell=True)
         
         Returns:
             {
@@ -31,46 +33,22 @@ class PythonExecutor(Executor):
                 "exit_code": int
             }
         """
-        try:
-            # Use subprocess to isolate execution
-            result = subprocess.run(
-                [sys.executable, "-c", code],
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
-            
-            return {
-                "success": result.returncode == 0,
-                "output": result.stdout,
-                "error": result.stderr,
-                "exit_code": result.returncode
-            }
-        except subprocess.TimeoutExpired:
-            return {
-                "success": False,
-                "output": "",
-                "error": f"Execution timeout after {timeout}s",
-                "exit_code": -1
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "output": "",
-                "error": str(e),
-                "exit_code": -1
-            }
+        return self.secure_executor.execute_python_safe(code, timeout=timeout)
 
 
 class ShellExecutor(Executor):
-    """Execute shell commands"""
+    """Execute shell commands - SECURE with whitelist"""
     
     def __init__(self):
         super().__init__(name="shell")
+        self.secure_executor = get_secure_executor()
     
     def execute(self, command: str, timeout: int = 30) -> Dict[str, Any]:
         """
-        Execute shell command
+        Execute shell command SECURELY
+        - No shell=True
+        - Command whitelist validation
+        - Input sanitization
         
         Returns:
             {
@@ -80,32 +58,5 @@ class ShellExecutor(Executor):
                 "exit_code": int
             }
         """
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                shell=True
-            )
-            
-            return {
-                "success": result.returncode == 0,
-                "output": result.stdout,
-                "error": result.stderr,
-                "exit_code": result.returncode
-            }
-        except subprocess.TimeoutExpired:
-            return {
-                "success": False,
-                "output": "",
-                "error": f"Execution timeout after {timeout}s",
-                "exit_code": -1
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "output": "",
-                "error": str(e),
-                "exit_code": -1
-            }
+        return self.secure_executor.execute_safe(command, timeout=timeout)
+

@@ -7,7 +7,7 @@ import requests
 from typing import List, Dict, Optional
 from src.agents.base import LLMProvider
 from src.utils.logger import get_logger
-from src.config import (
+from src.core.config import (
     GROQ_API_KEY,
     GROQ_MODEL,
     GROQ_TIMEOUT,

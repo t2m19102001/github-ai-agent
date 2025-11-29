@@ -5,7 +5,7 @@ Utility functions for text processing and validation
 
 import re
 from typing import Optional
-from src.config import MAX_PROMPT_LENGTH, MAX_ISSUE_BODY_LENGTH
+from src.core.config import MAX_PROMPT_LENGTH, MAX_ISSUE_BODY_LENGTH
 
 
 def sanitize_text(text: str, max_length: int = MAX_ISSUE_BODY_LENGTH) -> str:
