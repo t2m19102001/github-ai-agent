@@ -6,14 +6,22 @@ from fastapi.templating import Jinja2Templates
 import uuid
 
 from src.agents.code_agent import CodeChatAgent
-from src.llm.groq import GroqProvider  # hoặc OllamaProvider tùy bạn
+from src.config.settings import PROVIDER, MODELS, GROQ_KEY, LLMProvider
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 templates = Jinja2Templates(directory="src/web/templates")
 
-# Khởi tạo agent một lần duy nhất
-llm = GroqProvider()  # đổi thành OllamaProvider() nếu dùng local
+# Khởi tạo LLM provider dựa trên config
+if PROVIDER == "groq":
+    from langchain_groq import ChatGroq
+    llm = ChatGroq(groq_api_key=GROQ_KEY, model_name=MODELS[PROVIDER])
+    print(f"🚀 Using Groq API with model: {MODELS[PROVIDER]}")
+else:
+    from langchain_ollama import OllamaLLM
+    llm = OllamaLLM(model=MODELS[PROVIDER])
+    print(f"🚀 Using Ollama (local) with model: {MODELS[PROVIDER]}")
+
 agent = CodeChatAgent(llm_provider=llm)
 
 @app.get("/", response_class=HTMLResponse)

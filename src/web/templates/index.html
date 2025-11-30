@@ -1,57 +1,62 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Copilot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Copilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
+
 <body class="bg-gray-900 text-gray-100">
-  <div class="max-w-4xl mx-auto p-6 h-screen flex flex-col">
-    <h1 class="text-3xl font-bold text-center mb-8 text-cyan-400">My Private Copilot</h1>
-    
-    <div id="chat" class="flex-1 overflow-y-auto mb-4 space-y-4"></div>
-    
-    <form id="form" class="flex gap-3">
-      <input type="text" id="msg" autocomplete="off" placeholder="Gõ /help để xem commands | /autofix | commit nhé | tạo branch..." 
-             class="flex-1 bg-gray-800 rounded-lg px-5 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"/>
-      <button type="submit" class="bg-cyan-600 hover:bg-cyan-500 px-8 py-3 rounded-lg font-medium">Gửi</button>
-    </form>
-    <div class="text-center text-sm text-gray-500 mt-2">
-      💡 Commands: <span class="text-cyan-400">/help</span> | <span class="text-cyan-400">/autofix</span> | <span class="text-cyan-400">/test</span> | <span class="text-cyan-400">commit nhé</span>
+    <div class="max-w-4xl mx-auto p-6 h-screen flex flex-col">
+        <h1 class="text-3xl font-bold text-center mb-8 text-cyan-400">My Private Copilot</h1>
+
+        <div id="chat" class="flex-1 overflow-y-auto mb-4 space-y-4"></div>
+
+        <form id="form" class="flex gap-3">
+            <input type="text" id="msg" autocomplete="off"
+                placeholder="Gõ /help để xem commands | /autofix | commit nhé | tạo branch..."
+                class="flex-1 bg-gray-800 rounded-lg px-5 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+            <button type="submit" class="bg-cyan-600 hover:bg-cyan-500 px-8 py-3 rounded-lg font-medium">Gửi</button>
+        </form>
+        <div class="text-center text-sm text-gray-500 mt-2">
+            💡 Commands: <span class="text-cyan-400">/help</span> | <span class="text-cyan-400">/autofix</span> | <span
+                class="text-cyan-400">/test</span> | <span class="text-cyan-400">commit nhé</span>
+        </div>
     </div>
-  </div>
 
-  <script>
-    const sessionId = "{{ request.client.host }}-" + Date.now();
-    const ws = new WebSocket(`ws://${location.host}/ws/${sessionId}`);
-    
-    ws.onmessage = (event) => {
-      const chat = document.getElementById("chat");
-      const div = document.createElement("div");
-      div.className = "bg-gray-800 rounded-lg p-4 max-w-3xl ml-auto";
-      div.textContent = event.data;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-    };
+    <script>
+        const sessionId = "{{ request.client.host }}-" + Date.now();
+        const ws = new WebSocket(`ws://${location.host}/ws/${sessionId}`);
 
-    document.getElementById("form").onsubmit = (e) => {
-      e.preventDefault();
-      const input = document.getElementById("msg");
-      if (!input.value.trim()) return;
+        ws.onmessage = (event) => {
+            const chat = document.getElementById("chat");
+            const div = document.createElement("div");
+            div.className = "bg-gray-800 rounded-lg p-4 max-w-3xl ml-auto";
+            div.textContent = event.data;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        };
 
-      // Hiển thị tin nhắn người dùng
-      const chat = document.getElementById("chat");
-      const userDiv = document.createElement("div");
-      userDiv.className = "bg-cyan-900 rounded-lg p-4 max-w-3xl mr-auto";
-      userDiv.textContent = input.value;
-      chat.appendChild(userDiv);
+        document.getElementById("form").onsubmit = (e) => {
+            e.preventDefault();
+            const input = document.getElementById("msg");
+            if (!input.value.trim()) return;
 
-      ws.send(input.value);
-      input.value = "";
-      chat.scrollTop = chat.scrollHeight;
-    };
-  </script>
+            // Hiển thị tin nhắn người dùng
+            const chat = document.getElementById("chat");
+            const userDiv = document.createElement("div");
+            userDiv.className = "bg-cyan-900 rounded-lg p-4 max-w-3xl mr-auto";
+            userDiv.textContent = input.value;
+            chat.appendChild(userDiv);
+
+            ws.send(input.value);
+            input.value = "";
+            chat.scrollTop = chat.scrollHeight;
+        };
+    </script>
 </body>
+
 </html>

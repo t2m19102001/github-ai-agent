@@ -9,7 +9,13 @@ pytest-cov==4.1.0
 
 # RAG dependencies
 langchain==0.1.0
+langchain-community
+langchain-text-splitters
 chromadb==0.4.22
+
+# LLM Providers
+langchain-ollama  # For Ollama (local)
+langchain-openai  # For OpenAI (optional)
 
 # FastAPI + WebSocket
 fastapi==0.109.0

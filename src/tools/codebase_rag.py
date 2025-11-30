@@ -1,20 +1,39 @@
 #!/usr/bin/env python3
 """
-RAG for entire codebase using Chroma + OllamaEmbeddings
+RAG for entire codebase using Chroma + Configurable Embeddings
 Provides semantic search across the repository
+Supports: Ollama (local), OpenAI (cloud), Groq (cloud with local fallback)
 """
 
-from langchain_community.vectorstores import Chroma
-from langchain_ollama import OllamaEmbeddings
+from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 import glob
 
+# Import config
+from src.config.settings import PROVIDER, MODELS, LLMProvider
+
 # Global vector store
 vectordb = None
 
-# Initialize embedder with deepseek-coder model
-embedder = OllamaEmbeddings(model="deepseek-coder-v2:16b-instruct-qat")
+# Initialize embedder based on provider
+def get_embedder():
+    """Get embeddings model based on configured provider"""
+    if PROVIDER == "ollama":
+        try:
+            from langchain_ollama import OllamaEmbeddings
+            return OllamaEmbeddings(model=MODELS[PROVIDER])
+        except Exception as e:
+            print(f"⚠️ Ollama failed: {e}, using HuggingFace")
+    
+    # Fallback to free HuggingFace embeddings (for Groq/OpenAI/errors)
+    try:
+        from langchain_huggingface import HuggingFaceEmbeddings
+        return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    except ImportError:
+        raise ImportError("Install: pip install langchain-huggingface")
+
+embedder = get_embedder()
 
 
 def index_repo(path="."):
