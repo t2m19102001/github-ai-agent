@@ -15,24 +15,12 @@ import uuid
 logger = get_logger(__name__)
 
 # Initialize embedder based on provider
-def get_embedder():
-    """Get embeddings model based on configured provider"""
-    if PROVIDER == "ollama":
-        try:
-            from langchain_ollama import OllamaEmbeddings
-            return OllamaEmbeddings(model=MODELS["ollama"])
-        except Exception as e:
-            logger.warning(f"⚠️ Ollama failed: {e}, using HuggingFace")
-    
-    # Fallback to free HuggingFace embeddings (for Groq/OpenAI/errors)
-    try:
-        from langchain_huggingface import HuggingFaceEmbeddings
-        return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    except ImportError:
-        logger.error("❌ Install: pip install langchain-huggingface")
-        raise
-
-embedder = get_embedder()
+if PROVIDER == "ollama":
+    from langchain_ollama import OllamaEmbeddings
+    embedder = OllamaEmbeddings(model=MODELS["ollama"])
+else:
+    from langchain_huggingface import HuggingFaceEmbeddings
+    embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 # Global conversation database with error recovery
 MEMORY_PATH = ".memory"

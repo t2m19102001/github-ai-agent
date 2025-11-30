@@ -26,9 +26,28 @@ if PROVIDER == "groq":
     llm = ChatGroq(groq_api_key=GROQ_KEY, model_name=MODELS[PROVIDER])
     print(f"🚀 Using Groq API with model: {MODELS[PROVIDER]}")
 else:
-    from langchain_ollama import OllamaLLM
-    llm = OllamaLLM(model=MODELS[PROVIDER])
-    print(f"🚀 Using Ollama (local) with model: {MODELS[PROVIDER]}")
+    # Test Ollama connection before using it
+    import requests
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=2)
+        if response.status_code == 200:
+            from langchain_ollama import OllamaLLM
+            llm = OllamaLLM(model=MODELS[PROVIDER])
+            print(f"🚀 Using Ollama (local) with model: {MODELS[PROVIDER]}")
+        else:
+            raise ConnectionError("Ollama not responding")
+    except Exception as e:
+        print(f"❌ Ollama not accessible: {e}")
+        print(f"⚠️ Please start Ollama or set LLM_PROVIDER=groq")
+        print(f"Falling back to dummy LLM (will fail on chat)")
+        # Create a dummy LLM that will fail gracefully
+        class DummyLLM:
+            def invoke(self, prompt):
+                return "❌ Ollama is not running. Please start Ollama with: ollama serve"
+            def call(self, messages):
+                return "❌ Ollama is not running. Please start Ollama with: ollama serve"
+        llm = DummyLLM()
+        print("⚠️ Server started but LLM is unavailable")
 
 agent = CodeChatAgent(llm_provider=llm)
 
