@@ -113,12 +113,15 @@ class CodeChatAgent(Agent):
         logger.info(f"Action: {action}")
         return True
     
-    def chat(self, user_message: str) -> str:
+    def chat(self, user_message: str, session_id: Optional[str] = None) -> str:
         """Main chat interface with RAG-enhanced context and long-term memory"""
+        # Use provided session_id or default to instance session_id
+        active_session = session_id or self.session_id
+        
         # 1. Retrieve long-term memory
         try:
-            memory_context = get_memory(self.session_id, k=20)
-            logger.info(f"✅ Retrieved memory for session: {self.session_id}")
+            memory_context = get_memory(active_session, k=20)
+            logger.info(f"✅ Retrieved memory for session: {active_session}")
         except Exception as e:
             logger.warning(f"⚠️ Memory retrieval failed: {e}")
             memory_context = ""
@@ -139,7 +142,7 @@ class CodeChatAgent(Agent):
         
         # 5. Save to memory
         try:
-            save_memory(self.session_id, user_message, response)
+            save_memory(active_session, user_message, response)
             logger.info(f"💾 Saved conversation to memory")
         except Exception as e:
             logger.warning(f"⚠️ Failed to save memory: {e}")
