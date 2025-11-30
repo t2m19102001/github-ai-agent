@@ -55,7 +55,6 @@ def save_memory(session_id: str, user_msg: str, ai_msg: str):
             ],
             ids=[str(uuid.uuid4()), str(uuid.uuid4())]
         )
-        conversation_db.persist()
         logger.info(f"💾 Saved memory for session: {session_id}")
     except Exception as e:
         logger.error(f"❌ Failed to save memory: {e}")

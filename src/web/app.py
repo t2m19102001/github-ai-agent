@@ -1,4 +1,7 @@
 # src/web/app.py
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles

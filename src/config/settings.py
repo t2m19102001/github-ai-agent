@@ -19,7 +19,7 @@ PROVIDER = os.getenv("LLM_PROVIDER", LLMProvider.OLLAMA)
 # Model configuration
 MODELS = {
     LLMProvider.OLLAMA: "deepseek-coder-v2:16b-instruct-qat",
-    LLMProvider.GROQ: "llama3-70b-8192",
+    LLMProvider.GROQ: "llama-3.1-70b-versatile",
     LLMProvider.OPENAI: "gpt-4o-mini"
 }
 

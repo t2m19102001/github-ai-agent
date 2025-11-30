@@ -55,7 +55,6 @@ def index_repo(path="."):
     
     # Create or update vector store
     vectordb = Chroma.from_documents(docs, embedder, persist_directory=".chroma")
-    vectordb.persist()
     print("Index xong!")
 
 
