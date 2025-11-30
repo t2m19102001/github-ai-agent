@@ -2,14 +2,15 @@
 """
 Long-term Memory System using Chroma Vector Store
 Stores and retrieves conversation history for context-aware responses
-Supports: Ollama (local), OpenAI (cloud), Groq (cloud with local fallback)
+Supports: Ollama (local), Groq (cloud), OpenAI (cloud) - Auto fallback
 """
 
 from langchain_chroma import Chroma
 from src.utils.logger import get_logger
-
-# Import config
-from src.config.settings import PROVIDER, MODELS, LLMProvider
+from src.config.settings import PROVIDER, MODELS
+import os
+import shutil
+import uuid
 
 logger = get_logger(__name__)
 
@@ -19,7 +20,7 @@ def get_embedder():
     if PROVIDER == "ollama":
         try:
             from langchain_ollama import OllamaEmbeddings
-            return OllamaEmbeddings(model=MODELS[PROVIDER])
+            return OllamaEmbeddings(model=MODELS["ollama"])
         except Exception as e:
             logger.warning(f"⚠️ Ollama failed: {e}, using HuggingFace")
     
@@ -28,12 +29,23 @@ def get_embedder():
         from langchain_huggingface import HuggingFaceEmbeddings
         return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     except ImportError:
-        raise ImportError("Install: pip install langchain-huggingface")
+        logger.error("❌ Install: pip install langchain-huggingface")
+        raise
 
 embedder = get_embedder()
 
-# Global conversation database
-conversation_db = Chroma(persist_directory=".memory", embedding_function=embedder)
+# Global conversation database with error recovery
+MEMORY_PATH = ".memory"
+
+try:
+    conversation_db = Chroma(persist_directory=MEMORY_PATH, embedding_function=embedder)
+    logger.info(f"✅ Memory loaded from {MEMORY_PATH}")
+except Exception as e:
+    logger.warning(f"⚠️ Memory corrupted, recreating: {e}")
+    if os.path.exists(MEMORY_PATH):
+        shutil.rmtree(MEMORY_PATH)
+    conversation_db = Chroma(persist_directory=MEMORY_PATH, embedding_function=embedder)
+    logger.info(f"✅ Fresh memory created at {MEMORY_PATH}")
 
 
 def save_memory(session_id: str, user_msg: str, ai_msg: str):
@@ -48,16 +60,17 @@ def save_memory(session_id: str, user_msg: str, ai_msg: str):
     try:
         # Store both messages with metadata
         conversation_db.add_texts(
-            [user_msg, ai_msg],
+            texts=[user_msg, ai_msg],
             metadatas=[
-                {"session": session_id, "role": "user"},
-                {"session": session_id, "role": "assistant"}
-            ]
+                {"session_id": session_id, "role": "user"},
+                {"session_id": session_id, "role": "assistant"}
+            ],
+            ids=[str(uuid.uuid4()), str(uuid.uuid4())]
         )
         conversation_db.persist()
         logger.info(f"💾 Saved memory for session: {session_id}")
     except Exception as e:
-        logger.error(f"Failed to save memory: {e}")
+        logger.error(f"❌ Failed to save memory: {e}")
 
 
 def get_memory(session_id: str, k=20):
@@ -73,17 +86,21 @@ def get_memory(session_id: str, k=20):
     """
     try:
         # Search for messages from this session
-        results = conversation_db.similarity_search(session_id, k=k)
+        results = conversation_db.similarity_search(
+            query="history", 
+            k=k,
+            filter={"session_id": session_id}
+        )
         
-        # Filter by session_id and format
-        history = "\n".join([
-            f"{r.page_content}" 
-            for r in results 
-            if r.metadata.get("session") == session_id
-        ])
+        # Format conversation history
+        lines = []
+        for doc in results[:10]:  # Limit to most recent 10
+            role = "Bạn" if doc.metadata.get("role") == "user" else "AI"
+            lines.append(f"{role}: {doc.page_content}")
         
-        logger.info(f"🔍 Retrieved {len(results)} memories for session: {session_id}")
+        history = "\n".join(lines) if lines else "Chưa có lịch sử."
+        logger.info(f"🔍 Retrieved {len(lines)} memories for session: {session_id}")
         return history
     except Exception as e:
-        logger.error(f"Failed to retrieve memory: {e}")
-        return ""
+        logger.error(f"❌ Failed to retrieve memory: {e}")
+        return "Lịch sử tạm thời không khả dụng."

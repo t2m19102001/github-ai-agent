@@ -1,25 +1,39 @@
 # 🤖 GitHub AI Agent v2.0
 
-**Production-ready AI Agent for GitHub with modular architecture, code execution, and Git integration.**
+**Production-ready AI Agent with multi-provider LLM support, RAG, long-term memory, and Git automation.**
 
 ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## 🚀 Quick Start (2 minutes)
+## 🚀 Quick Start (3 Steps)
 
+### 1. Install Dependencies
 ```bash
-# 1. Setup
-cp .env.example .env
-# Edit .env with your API keys
-
-# 2. Run Web UI
-python run_web.py
-# Open http://localhost:5000
-
-# 3. Or CLI
-python main.py
+pip install -r requirements.txt
 ```
+
+### 2. Choose LLM Provider
+```bash
+# Option A: Groq (Recommended - Fast & Free)
+export LLM_PROVIDER=groq
+export GROQ_API_KEY=gsk_your_key_here
+
+# Option B: Ollama (Local)
+export LLM_PROVIDER=ollama
+
+# Option C: OpenAI (Most Powerful)
+export LLM_PROVIDER=openai
+export OPENAI_API_KEY=sk_your_key_here
+```
+
+### 3. Run Server
+```bash
+uvicorn src.web.app:app --reload --port=5000
+# Open http://127.0.0.1:5000
+```
+
+**📚 Docs:** [`QUICK_START.md`](QUICK_START.md) | [`MULTI_PROVIDER_SETUP.md`](MULTI_PROVIDER_SETUP.md) | [`FIX_SUMMARY.md`](FIX_SUMMARY.md)
 
 ## 📁 Clean Structure
 
