@@ -102,8 +102,19 @@ class CodeChatAgent(Agent):
         # Add user message
         messages.append({"role": "user", "content": prompt})
         
-        # Call LLM
-        response = self.llm.call(messages)
+        # Call LLM - support both custom providers and LangChain LLMs
+        try:
+            # Try custom provider interface first (has .call method)
+            response = self.llm.call(messages)
+        except AttributeError:
+            # Fallback to LangChain interface (ChatGroq, OllamaLLM, etc.)
+            # Convert messages to string for invoke
+            formatted_prompt = "\n\n".join([
+                f"{msg['role'].upper()}: {msg['content']}" 
+                for msg in messages
+            ])
+            result = self.llm.invoke(formatted_prompt)
+            response = result.content if hasattr(result, 'content') else str(result)
         
         return response or "❌ Error: Could not generate response"
     

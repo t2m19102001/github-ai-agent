@@ -88,13 +88,18 @@ def get_memory(session_id: str, k=20):
         # Search for messages from this session
         results = conversation_db.similarity_search(
             query="history", 
-            k=k,
-            filter={"session_id": session_id}
+            k=k
         )
+        
+        # Filter by session_id (Chroma filter doesn't work reliably)
+        filtered_results = [
+            doc for doc in results 
+            if doc.metadata.get("session_id") == session_id
+        ]
         
         # Format conversation history
         lines = []
-        for doc in results[:10]:  # Limit to most recent 10
+        for doc in filtered_results[:10]:  # Limit to most recent 10
             role = "Bạn" if doc.metadata.get("role") == "user" else "AI"
             lines.append(f"{role}: {doc.page_content}")
         

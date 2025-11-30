@@ -26,3 +26,11 @@ MODELS = {
 # API Keys
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+
+# Validation helper (call this explicitly when needed)
+def validate_api_keys():
+    """Validate that required API keys are set"""
+    if PROVIDER == "groq" and not GROQ_KEY:
+        raise ValueError("❌ GROQ_API_KEY is required when LLM_PROVIDER=groq. Get it from https://console.groq.com/keys")
+    if PROVIDER == "openai" and not OPENAI_KEY:
+        raise ValueError("❌ OPENAI_API_KEY is required when LLM_PROVIDER=openai")

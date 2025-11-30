@@ -8,6 +8,14 @@ import uuid
 from src.agents.code_agent import CodeChatAgent
 from src.config.settings import PROVIDER, MODELS, GROQ_KEY, LLMProvider
 
+# Validate API keys at startup (with warning instead of crash)
+try:
+    from src.config.settings import validate_api_keys
+    validate_api_keys()
+except ValueError as e:
+    print(f"⚠️ Warning: {e}")
+    print("Server will start but may fail on first request if API key is missing")
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 templates = Jinja2Templates(directory="src/web/templates")
@@ -174,11 +182,19 @@ Gõ bất kỳ câu hỏi để bắt đầu!"""
 
             # Lấy lịch sử chat cũ
             from src.memory import get_memory, save_memory
-            history = get_memory(session_id, k=20)
+            try:
+                history = get_memory(session_id, k=20)
+            except Exception as e:
+                history = "(Memory unavailable)"
+                print(f"⚠️ Memory error: {e}")
 
             # Lấy context từ repo
             from src.tools.codebase_rag import get_context
-            rag_context = get_context(user_msg, k=15)
+            try:
+                rag_context = get_context(user_msg, k=15)
+            except Exception as e:
+                rag_context = "(RAG unavailable)"
+                print(f"⚠️ RAG error: {e}")
 
             # Prompt siêu mạnh
             full_prompt = f"""Lịch sử chat trước đó:
@@ -191,10 +207,17 @@ Câu hỏi hiện tại: {user_msg}
 
 Trả lời tự nhiên bằng tiếng Việt, dùng lại kiến thức cũ nếu có."""
 
-            response = agent.chat(full_prompt, session_id=session_id)
+            try:
+                response = agent.chat(full_prompt, session_id=session_id)
+            except Exception as e:
+                response = f"❌ Lỗi tạm thời: {str(e)}. Vui lòng thử lại!"
+                print(f"❌ Chat error: {e}")
 
             # Lưu vào memory
-            save_memory(session_id, user_msg, response)
+            try:
+                save_memory(session_id, user_msg, response)
+            except Exception as e:
+                print(f"⚠️ Failed to save memory: {e}")
 
             await websocket.send_text(response)
 

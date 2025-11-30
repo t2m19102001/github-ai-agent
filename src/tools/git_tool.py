@@ -5,10 +5,20 @@ Provides safe Git operations for AI agents
 """
 
 import subprocess
+import os
 from typing import Optional, Dict, Any
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def ensure_git_repo():
+    """Ensure git repository is initialized"""
+    if not os.path.exists('.git'):
+        logger.info("📦 Initializing git repository...")
+        subprocess.run(['git', 'init'], check=True)
+        return True
+    return False
 
 
 def git_commit(message: str) -> Dict[str, Any]:
@@ -22,6 +32,13 @@ def git_commit(message: str) -> Dict[str, Any]:
         Dict with success status and output
     """
     try:
+        # Ensure git is initialized
+        if ensure_git_repo():
+            return {
+                "success": True,
+                "output": "✅ Initialized new git repository. Run commit again to add changes."
+            }
+        
         # Stage all changes
         result_add = subprocess.run(
             ["git", "add", "."],
@@ -77,6 +94,13 @@ def git_create_branch(name: str) -> Dict[str, Any]:
         Dict with success status and output
     """
     try:
+        # Ensure git is initialized
+        if ensure_git_repo():
+            return {
+                "success": True,
+                "output": "✅ Initialized new git repository. Run branch creation again."
+            }
+        
         result = subprocess.run(
             ["git", "checkout", "-b", name],
             check=True,

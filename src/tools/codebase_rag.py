@@ -112,11 +112,25 @@ def get_context(question, k=15):
     """
     global vectordb
     
+    # Performance optimization: Only index if needed
     if vectordb is None:
-        if os.path.exists(".chroma"):
-            vectordb = Chroma(persist_directory=".chroma", embedding_function=embedder)
+        db_path = ".chroma"
+        if os.path.exists(db_path):
+            # Check if index has actual data (parquet files)
+            parquet_files = glob.glob(f"{db_path}/**/*.parquet", recursive=True)
+            if parquet_files:
+                print("✅ Loading existing RAG index...")
+                vectordb = Chroma(persist_directory=db_path, embedding_function=embedder)
+            else:
+                print("⚠️ Empty index, re-indexing...")
+                index_repo()
         else:
+            print("📚 First time: Indexing repository...")
             index_repo()
     
-    results = vectordb.similarity_search(question, k=k)
-    return "\n\n".join([f"File: {r.metadata['source']}:\n{r.page_content}" for r in results])
+    try:
+        results = vectordb.similarity_search(question, k=k)
+        return "\n\n".join([f"File: {r.metadata['source']}:\n{r.page_content}" for r in results])
+    except Exception as e:
+        print(f"❌ RAG error: {e}")
+        return "(RAG unavailable)"
