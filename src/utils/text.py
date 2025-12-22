@@ -70,3 +70,15 @@ def truncate_text(text: str, max_length: int = 1000, suffix: str = "...") -> str
         return text
     
     return text[:max_length - len(suffix)] + suffix
+
+def format_for_display(text: str) -> str:
+    """Convert markdown-like bullets to cleaner plain text for UI"""
+    if not text:
+        return ""
+    t = text
+    t = re.sub(r"\* \*\*(.*?)\*\*:", r"• \1:", t)
+    t = re.sub(r"\* \*\*(.*?)\*\*", r"• \1", t)
+    t = re.sub(r"\*\*", "", t)
+    t = re.sub(r"\s*• ", "\n• ", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()

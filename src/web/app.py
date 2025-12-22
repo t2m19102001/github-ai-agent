@@ -10,6 +10,7 @@ import uuid
 
 from src.agents.code_agent import CodeChatAgent
 from src.config.settings import PROVIDER, MODELS, GROQ_KEY, LLMProvider
+from src.utils.token_manager import TokenManager
 
 # Validate API keys at startup (with warning instead of crash)
 try:
@@ -53,6 +54,32 @@ else:
         print("⚠️ Server started but LLM is unavailable")
 
 agent = CodeChatAgent(llm_provider=llm)
+token_manager = TokenManager()
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
+@app.get("/status")
+async def status():
+    ready = True
+    provider = str(PROVIDER)
+    model = MODELS.get(PROVIDER)
+    if provider == "groq" and not GROQ_KEY:
+        ready = False
+    return {"provider": provider, "model": model, "ready": ready}
+
+@app.middleware("http")
+async def timing_middleware(request, call_next):
+    import time
+    start = time.time()
+    response = await call_next(request)
+    d = int((time.time() - start) * 1000)
+    try:
+        print(f"REQ {request.url.path} {d}ms")
+    except Exception:
+        pass
+    return response
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -65,6 +92,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         while True:
             data = await websocket.receive_text()
             user_msg = data.strip()
+            if user_msg:
+                user_msg = token_manager.truncate_text(user_msg, 2000)
 
             # Help command
             if user_msg.lower() in ["/help", "help", "giúp tôi"]:
@@ -202,45 +231,16 @@ Gõ bất kỳ câu hỏi để bắt đầu!"""
                 await websocket.send_text(response_text)
                 continue
 
-            # Lấy lịch sử chat cũ
-            from src.memory import get_memory, save_memory
             try:
-                history = get_memory(session_id, k=20)
-            except Exception as e:
-                history = "(Memory unavailable)"
-                print(f"⚠️ Memory error: {e}")
-
-            # Lấy context từ repo
-            from src.tools.codebase_rag import get_context
-            try:
-                rag_context = get_context(user_msg, k=15)
-            except Exception as e:
-                rag_context = "(RAG unavailable)"
-                print(f"⚠️ RAG error: {e}")
-
-            # Prompt siêu mạnh
-            full_prompt = f"""Lịch sử chat trước đó:
-{history}
-
-Toàn bộ codebase (relevant files):
-{rag_context}
-
-Câu hỏi hiện tại: {user_msg}
-
-Trả lời tự nhiên bằng tiếng Việt, dùng lại kiến thức cũ nếu có."""
-
-            try:
-                response = agent.chat(full_prompt, session_id=session_id)
+                response = agent.chat(user_msg, session_id=session_id)
             except Exception as e:
                 response = f"❌ Lỗi tạm thời: {str(e)}. Vui lòng thử lại!"
                 print(f"❌ Chat error: {e}")
-
-            # Lưu vào memory
             try:
-                save_memory(session_id, user_msg, response)
-            except Exception as e:
-                print(f"⚠️ Failed to save memory: {e}")
-
+                from src.utils.text import format_for_display
+                response = format_for_display(response)
+            except Exception:
+                pass
             await websocket.send_text(response)
 
     except WebSocketDisconnect:

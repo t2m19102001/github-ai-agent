@@ -1,52 +1,56 @@
 #!/usr/bin/env python3
-"""
-Long-term Memory System using Chroma Vector Store
-Stores and retrieves conversation history for context-aware responses
-Supports: Ollama (local), Groq (cloud), OpenAI (cloud) - Auto fallback
-"""
-
-from langchain_chroma import Chroma
-from src.utils.logger import get_logger
-from src.config.settings import PROVIDER, MODELS
 import os
 import shutil
 import uuid
 
+from src.utils.logger import get_logger
+from src.config.settings import PROVIDER, MODELS
+
 logger = get_logger(__name__)
 
-# Initialize embedder based on provider
-if PROVIDER == "ollama":
-    from langchain_ollama import OllamaEmbeddings
-    embedder = OllamaEmbeddings(model=MODELS["ollama"])
-else:
-    from langchain_huggingface import HuggingFaceEmbeddings
-    embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+try:
+    from langchain_chroma import Chroma
+except Exception:
+    Chroma = None
 
-# Global conversation database with error recovery
+class SimpleMemory:
+    def __init__(self):
+        self.items = []
+    def add_texts(self, texts, metadatas, ids):
+        for t, m, i in zip(texts, metadatas, ids):
+            self.items.append({"text": t, "metadata": m, "id": i})
+    def similarity_search(self, query, k=20):
+        scored = []
+        for it in self.items:
+            score = sum(1 for w in query.lower().split() if w and w in it["text"].lower())
+            scored.append((it, score))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        result = []
+        for it, _ in scored[:k]:
+            class Doc:
+                page_content = it["text"]
+                metadata = it["metadata"]
+            result.append(Doc)
+        return result
+
 MEMORY_PATH = ".memory"
 
-try:
-    conversation_db = Chroma(persist_directory=MEMORY_PATH, embedding_function=embedder)
-    logger.info(f"✅ Memory loaded from {MEMORY_PATH}")
-except Exception as e:
-    logger.warning(f"⚠️ Memory corrupted, recreating: {e}")
-    if os.path.exists(MEMORY_PATH):
-        shutil.rmtree(MEMORY_PATH)
-    conversation_db = Chroma(persist_directory=MEMORY_PATH, embedding_function=embedder)
-    logger.info(f"✅ Fresh memory created at {MEMORY_PATH}")
-
+if Chroma:
+    try:
+        if PROVIDER == "ollama":
+            from langchain_ollama import OllamaEmbeddings
+            embedder = OllamaEmbeddings(model=MODELS["ollama"])
+        else:
+            from langchain_huggingface import HuggingFaceEmbeddings
+            embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        conversation_db = Chroma(persist_directory=MEMORY_PATH, embedding_function=embedder)
+    except Exception:
+        conversation_db = SimpleMemory()
+else:
+    conversation_db = SimpleMemory()
 
 def save_memory(session_id: str, user_msg: str, ai_msg: str):
-    """
-    Save a conversation turn to memory
-    
-    Args:
-        session_id: Unique session identifier
-        user_msg: User's message
-        ai_msg: AI's response
-    """
     try:
-        # Store both messages with metadata
         conversation_db.add_texts(
             texts=[user_msg, ai_msg],
             metadatas=[
@@ -55,44 +59,18 @@ def save_memory(session_id: str, user_msg: str, ai_msg: str):
             ],
             ids=[str(uuid.uuid4()), str(uuid.uuid4())]
         )
-        logger.info(f"💾 Saved memory for session: {session_id}")
-    except Exception as e:
-        logger.error(f"❌ Failed to save memory: {e}")
-
+    except Exception:
+        pass
 
 def get_memory(session_id: str, k=20):
-    """
-    Retrieve conversation history for a session
-    
-    Args:
-        session_id: Unique session identifier
-        k: Number of messages to retrieve (default: 20)
-    
-    Returns:
-        String with formatted conversation history
-    """
     try:
-        # Search for messages from this session
-        results = conversation_db.similarity_search(
-            query="history", 
-            k=k
-        )
-        
-        # Filter by session_id (Chroma filter doesn't work reliably)
-        filtered_results = [
-            doc for doc in results 
-            if doc.metadata.get("session_id") == session_id
-        ]
-        
-        # Format conversation history
+        results = conversation_db.similarity_search(query="history", k=k)
+        filtered = [doc for doc in results if doc.metadata.get("session_id") == session_id]
         lines = []
-        for doc in filtered_results[:10]:  # Limit to most recent 10
+        for doc in filtered[:10]:
             role = "Bạn" if doc.metadata.get("role") == "user" else "AI"
             lines.append(f"{role}: {doc.page_content}")
-        
         history = "\n".join(lines) if lines else "Chưa có lịch sử."
-        logger.info(f"🔍 Retrieved {len(lines)} memories for session: {session_id}")
         return history
-    except Exception as e:
-        logger.error(f"❌ Failed to retrieve memory: {e}")
+    except Exception:
         return "Lịch sử tạm thời không khả dụng."

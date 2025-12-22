@@ -1,124 +1,115 @@
 #!/usr/bin/env python3
-"""
-RAG for entire codebase using Chroma + Configurable Embeddings
-Provides semantic search across the repository
-Supports: Ollama (local), OpenAI (cloud), Groq (cloud with local fallback)
-"""
-
-from langchain_chroma import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 import os
 import glob
+import math
 
-# Import config
+try:
+    from langchain_chroma import Chroma
+except Exception:
+    Chroma = None
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+except Exception:
+    RecursiveCharacterTextSplitter = None
+
 from src.config.settings import PROVIDER, MODELS, LLMProvider
 
-# Global vector store
 vectordb = None
 
-# Initialize embedder based on provider
-if PROVIDER == "ollama":
-    from langchain_ollama import OllamaEmbeddings
-    embedder = OllamaEmbeddings(model=MODELS["ollama"])
-else:
-    from langchain_huggingface import HuggingFaceEmbeddings
-    embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+def _simple_split(text, chunk_size=2000, chunk_overlap=200):
+    if not text:
+        return [""]
+    chunks = []
+    i = 0
+    n = len(text)
+    while i < n:
+        chunks.append(text[i:i+chunk_size])
+        i += max(1, chunk_size - chunk_overlap)
+    return chunks
 
+def _keyword_score(a, b):
+    aw = set([w for w in a.lower().split() if len(w) > 2])
+    bw = set([w for w in b.lower().split() if len(w) > 2])
+    inter = aw.intersection(bw)
+    return len(inter)
+
+class SimpleDoc:
+    def __init__(self, content, metadata):
+        self.page_content = content
+        self.metadata = metadata
+
+class SimpleVectorDB:
+    def __init__(self, docs):
+        self.docs = docs
+    def similarity_search(self, query, k=15):
+        scored = [(d, _keyword_score(query, d.page_content)) for d in self.docs]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top = [s[0] for s in scored[:k]]
+        return top
+
+def _build_docs(texts, metadatas, chunk_size=2000, chunk_overlap=200):
+    docs = []
+    if RecursiveCharacterTextSplitter:
+        splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        docs = splitter.create_documents(texts, metadatas)
+    else:
+        for text, meta in zip(texts, metadatas):
+            for chunk in _simple_split(text, chunk_size, chunk_overlap):
+                docs.append(SimpleDoc(chunk, meta))
+    return docs
 
 def index_repo(path="."):
-    """
-    Index the entire repository for RAG retrieval
-    
-    Args:
-        path: Root path of the repository (default: current directory)
-    """
     global vectordb
-    
-    print("Đang index toàn bộ repo... (chỉ chạy lần đầu)")
-    
-    # Collect all Python files recursively
     files = [f for f in glob.glob("**/*.py", recursive=True) if not f.startswith(".chroma") and os.path.getsize(f) < 1_000_000]
-    
     texts, metadatas = [], []
-    
     for f in files:
         try:
             with open(f, "r", encoding="utf-8", errors="ignore") as file:
                 texts.append(file.read())
                 metadatas.append({"source": f})
-        except:
+        except Exception:
             pass
-    
-    # Split documents into chunks
-    splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
-    docs = splitter.create_documents(texts, metadatas)
-    
-    # Create or update vector store
-    vectordb = Chroma.from_documents(docs, embedder, persist_directory=".chroma")
-    print("Index xong!")
-
+    docs = _build_docs(texts, metadatas, 2000, 200)
+    if Chroma:
+        try:
+            from src.config.settings import PROVIDER, MODELS
+            if PROVIDER == "ollama":
+                from langchain_ollama import OllamaEmbeddings
+                embedder = OllamaEmbeddings(model=MODELS["ollama"])
+            else:
+                from langchain_huggingface import HuggingFaceEmbeddings
+                embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            vectordb = Chroma.from_documents(docs, embedder, persist_directory=".chroma")
+            return
+        except Exception:
+            pass
+    vectordb = SimpleVectorDB([SimpleDoc(d.page_content if hasattr(d, "page_content") else d, getattr(d, "metadata", {})) for d in docs])
 
 def retrieve(query, k=15):
-    """
-    Retrieve relevant code snippets from the indexed repository
-    
-    Args:
-        query: Search query
-        k: Number of results to return (default: 15)
-    
-    Returns:
-        String with retrieved file paths and content snippets
-    """
     global vectordb
-    
     if vectordb is None:
-        # Try to load existing index
-        if os.path.exists(".chroma"):
-            vectordb = Chroma(persist_directory=".chroma", embedding_function=embedder)
-        else:
-            # Index the repository if no index exists
-            index_repo()
-    
-    # Perform similarity search
-    results = vectordb.similarity_search(query, k=k)
-    
-    # Format results for context
-    return "\n\n".join([f"File {r.metadata['source']}:\n{r.page_content}" for r in results])
-
-
-def get_context(question, k=15):
-    """
-    Get context from codebase for a question
-    Wrapper around retrieve() for better naming
-    
-    Args:
-        question: User's question
-        k: Number of results (default: 15)
-    
-    Returns:
-        Formatted context string
-    """
-    global vectordb
-    
-    # Performance optimization: Only index if needed
-    if vectordb is None:
-        db_path = ".chroma"
-        if os.path.exists(db_path):
-            # Check if index has actual data (parquet files)
-            parquet_files = glob.glob(f"{db_path}/**/*.parquet", recursive=True)
-            if parquet_files:
-                print("✅ Loading existing RAG index...")
-                vectordb = Chroma(persist_directory=db_path, embedding_function=embedder)
-            else:
-                print("⚠️ Empty index, re-indexing...")
+        if os.path.exists(".chroma") and Chroma:
+            try:
+                if PROVIDER == "ollama":
+                    from langchain_ollama import OllamaEmbeddings
+                    embedder = OllamaEmbeddings(model=MODELS["ollama"])
+                else:
+                    from langchain_huggingface import HuggingFaceEmbeddings
+                    embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+                vectordb = Chroma(persist_directory=".chroma", embedding_function=embedder)
+            except Exception:
                 index_repo()
         else:
-            print("📚 First time: Indexing repository...")
             index_repo()
-    
+    results = vectordb.similarity_search(query, k=k)
+    return "\n\n".join([f"File {r.metadata.get('source', '')}:\n{r.page_content}" for r in results])
+
+def get_context(question, k=15):
+    global vectordb
+    if vectordb is None:
+        index_repo()
     try:
         results = vectordb.similarity_search(question, k=k)
-        return "\n\n".join([f"File: {r.metadata['source']}:\n{r.page_content}" for r in results])
-    except Exception as e:
-        print(f"❌ RAG error: {e}")
+        return "\n\n".join([f"File: {r.metadata.get('source', '')}:\n{r.page_content}" for r in results])
+    except Exception:
         return "(RAG unavailable)"

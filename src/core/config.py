@@ -36,11 +36,6 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_FULL_NAME = os.getenv("REPO_FULL_NAME")
 
-if not GITHUB_TOKEN:
-    raise ValueError("❌ GITHUB_TOKEN is required")
-if not REPO_FULL_NAME:
-    raise ValueError("❌ REPO_FULL_NAME is required")
-
 # ============================================================================
 # LLM Configuration
 # ============================================================================
@@ -57,9 +52,8 @@ HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "meta-llama/Llama-2-7b-chat-hf")
 HUGGINGFACE_TIMEOUT = int(os.getenv("HUGGINGFACE_TIMEOUT", "60"))
 
-# At least one LLM key required
-if not (GROQ_API_KEY or HUGGINGFACE_TOKEN):
-    raise ValueError("❌ At least GROQ_API_KEY or HUGGINGFACE_TOKEN is required")
+# At least one LLM key required unless using local provider
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
 
 # ============================================================================
 # Web Server Configuration
@@ -118,15 +112,19 @@ MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
 def validate_config():
     """Validate configuration"""
     errors = []
-    
     if not GITHUB_TOKEN:
-        errors.append("GITHUB_TOKEN is required")
-    
+        errors.append("GITHUB_TOKEN not set (GitHub features disabled)")
     if not REPO_FULL_NAME:
-        errors.append("REPO_FULL_NAME is required")
-    
-    if not (GROQ_API_KEY or HUGGINGFACE_TOKEN):
-        errors.append("At least GROQ_API_KEY or HUGGINGFACE_TOKEN is required")
+        errors.append("REPO_FULL_NAME not set (PR analysis disabled)")
+    if LLM_PROVIDER in ("groq", "openai"):
+        if LLM_PROVIDER == "groq" and not GROQ_API_KEY:
+            errors.append("GROQ_API_KEY is required when LLM_PROVIDER=groq")
+        if LLM_PROVIDER == "openai" and not HUGGINGFACE_TOKEN and not os.getenv("OPENAI_API_KEY"):
+            errors.append("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
+    else:
+        if not (GROQ_API_KEY or HUGGINGFACE_TOKEN):
+            # Only warn when using local provider
+            pass
     
     if errors:
         raise ValueError("Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors))
@@ -142,7 +140,7 @@ def print_config():
     print("=" * 70)
     print(f"Environment: {ENV}")
     print(f"Debug: {DEBUG}")
-    print(f"Repository: {REPO_FULL_NAME}")
+    print(f"Repository: {REPO_FULL_NAME or 'not set'}")
     print(f"LLM Primary: GROQ ({GROQ_MODEL})")
     print(f"LLM Fallback: {'HuggingFace' if HUGGINGFACE_TOKEN else 'None'}")
     print(f"Web Server: http://{CHAT_HOST}:{CHAT_PORT}")

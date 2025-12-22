@@ -19,32 +19,31 @@ logger = get_logger(__name__)
 def main():
     """Main entry point for web interface"""
     try:
-        # Setup logging
         setup_logging()
-        
-        # Validate configuration
-        validate_config()
-        
-        # Print config
+        try:
+            validate_config()
+        except ValueError as e:
+            print(f"⚠️ Configuration warning: {e}")
+            print("Proceeding with startup for local development. Some features may be disabled.")
         print_config()
-        
         logger.info("🚀 Starting Code Chat Web Server...")
-        
-        # Create Flask app
-        from src.web.app import create_app
-        
-        app = create_app()
-        
-        print(f"\n{'='*70}")
-        print(f"🌐 Web Server running on http://{CHAT_HOST}:{CHAT_PORT}")
-        print(f"{'='*70}\n")
-        
-        app.run(
-            host=CHAT_HOST,
-            port=CHAT_PORT,
-            debug=DEBUG,
-            use_reloader=DEBUG
-        )
+
+        try:
+            # Prefer FastAPI app if available
+            from src.web.app import app as fastapi_app
+            print(f"\n{'='*70}")
+            print(f"🌐 FastAPI server on http://{CHAT_HOST}:{CHAT_PORT}")
+            print(f"{'='*70}\n")
+            import uvicorn
+            uvicorn.run(fastapi_app, host=CHAT_HOST, port=CHAT_PORT, reload=DEBUG, log_level="debug" if DEBUG else "info")
+        except Exception:
+            # Fallback to Flask app
+            from src.web.app_flask import create_app
+            flask_app = create_app()
+            print(f"\n{'='*70}")
+            print(f"🌐 Flask server on http://{CHAT_HOST}:{CHAT_PORT}")
+            print(f"{'='*70}\n")
+            flask_app.run(host=CHAT_HOST, port=CHAT_PORT, debug=DEBUG, use_reloader=DEBUG)
     
     except ValueError as e:
         print(f"❌ Configuration error: {e}")
