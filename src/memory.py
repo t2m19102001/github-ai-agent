@@ -35,7 +35,9 @@ class SimpleMemory:
 
 MEMORY_PATH = ".memory"
 
-if Chroma:
+enable_vector = os.getenv("ENABLE_VECTOR_DB", "0") == "1"
+
+if enable_vector and Chroma:
     try:
         if PROVIDER == "ollama":
             from langchain_ollama import OllamaEmbeddings

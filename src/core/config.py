@@ -13,7 +13,7 @@ from typing import Literal
 load_dotenv()
 
 # Directories
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SRC_DIR = PROJECT_ROOT / "src"
 TESTS_DIR = PROJECT_ROOT / "tests"
 DOCS_DIR = PROJECT_ROOT / "docs"

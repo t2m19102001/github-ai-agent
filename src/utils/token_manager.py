@@ -1,6 +1,9 @@
-import tiktoken
 from typing import List, Dict, Optional
 from src.utils.logger import get_logger
+try:
+    import tiktoken  # type: ignore
+except Exception:
+    tiktoken = None
 
 logger = get_logger(__name__)
 
@@ -10,10 +13,18 @@ class TokenManager:
     Uses tiktoken for accurate counting (defaulting to cl100k_base encoding).
     """
     def __init__(self, model: str = "gpt-4"):
-        try:
-            self.encoding = tiktoken.encoding_for_model(model)
-        except KeyError:
-            self.encoding = tiktoken.get_encoding("cl100k_base")
+        if tiktoken is None:
+            class _BasicEncoding:
+                def encode(self, text: str):
+                    return text.split() if text else []
+                def decode(self, tokens: List[str]):
+                    return " ".join(tokens)
+            self.encoding = _BasicEncoding()
+        else:
+            try:
+                self.encoding = tiktoken.encoding_for_model(model)
+            except KeyError:
+                self.encoding = tiktoken.get_encoding("cl100k_base")
             
     def count_tokens(self, text: str) -> int:
         """Count tokens in a text string"""

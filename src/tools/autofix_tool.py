@@ -45,14 +45,18 @@ def run_pytest(test_args: str = "-q") -> Dict[str, Any]:
         return {
             "success": False,
             "error": "Test execution timeout",
-            "output": "Tests took too long to run (>60s)"
+            "output": "Tests took too long to run (>60s)",
+            "stdout": "",
+            "stderr": ""
         }
     except Exception as e:
         logger.error(f"❌ Test execution failed: {e}")
         return {
             "success": False,
             "error": str(e),
-            "output": f"Failed to run tests: {e}"
+            "output": f"Failed to run tests: {e}",
+            "stdout": "",
+            "stderr": ""
         }
 
 

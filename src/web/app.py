@@ -10,6 +10,9 @@ import uuid
 
 from src.agents.code_agent import CodeChatAgent
 from src.config.settings import PROVIDER, MODELS, GROQ_KEY, LLMProvider
+from src.llm.failover import FailoverProvider
+from src.llm.groq import GroqProvider
+from src.llm.ollama import OllamaProvider
 from src.utils.token_manager import TokenManager
 
 # Validate API keys at startup (with warning instead of crash)
@@ -24,34 +27,40 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 templates = Jinja2Templates(directory="src/web/templates")
 
-# Khởi tạo LLM provider dựa trên config
-if PROVIDER == "groq":
-    from langchain_groq import ChatGroq
-    llm = ChatGroq(groq_api_key=GROQ_KEY, model_name=MODELS[PROVIDER])
-    print(f"🚀 Using Groq API with model: {MODELS[PROVIDER]}")
+import requests
+
+providers = []
+try:
+    if str(PROVIDER) == "groq":
+        if GROQ_KEY:
+            providers.append(GroqProvider())
+        try:
+            r = requests.get("http://localhost:11434/api/tags", timeout=2)
+            if r.status_code == 200:
+                providers.append(OllamaProvider(model=MODELS[LLMProvider.OLLAMA]))
+        except Exception:
+            pass
+    else:
+        # Prefer Ollama then Groq
+        try:
+            r = requests.get("http://localhost:11434/api/tags", timeout=2)
+            if r.status_code == 200:
+                providers.append(OllamaProvider(model=MODELS[LLMProvider.OLLAMA]))
+        except Exception:
+            pass
+        if GROQ_KEY:
+            providers.append(GroqProvider())
+except Exception as e:
+    print(f"⚠️ Provider init warning: {e}")
+
+if not providers:
+    class DummyLLM:
+        def call(self, messages):
+            return "❌ No LLM providers available. Configure GROQ_API_KEY or start Ollama (ollama serve)"
+    llm = DummyLLM()
 else:
-    # Test Ollama connection before using it
-    import requests
-    try:
-        response = requests.get("http://localhost:11434/api/tags", timeout=2)
-        if response.status_code == 200:
-            from langchain_ollama import OllamaLLM
-            llm = OllamaLLM(model=MODELS[PROVIDER])
-            print(f"🚀 Using Ollama (local) with model: {MODELS[PROVIDER]}")
-        else:
-            raise ConnectionError("Ollama not responding")
-    except Exception as e:
-        print(f"❌ Ollama not accessible: {e}")
-        print(f"⚠️ Please start Ollama or set LLM_PROVIDER=groq")
-        print(f"Falling back to dummy LLM (will fail on chat)")
-        # Create a dummy LLM that will fail gracefully
-        class DummyLLM:
-            def invoke(self, prompt):
-                return "❌ Ollama is not running. Please start Ollama with: ollama serve"
-            def call(self, messages):
-                return "❌ Ollama is not running. Please start Ollama with: ollama serve"
-        llm = DummyLLM()
-        print("⚠️ Server started but LLM is unavailable")
+    llm = FailoverProvider(providers)
+    print(f"🚀 Using Failover LLM with {len(providers)} providers")
 
 agent = CodeChatAgent(llm_provider=llm)
 token_manager = TokenManager()

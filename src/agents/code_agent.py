@@ -33,6 +33,13 @@ class CodeChatAgent(Agent):
         self.llm = llm_provider
         self.session_id = str(uuid.uuid4())  # Unique session ID
         self.token_manager = TokenManager()
+        try:
+            files: List[str] = []
+            for ext in CODE_EXTENSIONS:
+                files.extend([str(p.relative_to(PROJECT_ROOT)) for p in PROJECT_ROOT.rglob(f"*{ext}")])
+            self.project_files = files
+        except Exception:
+            self.project_files = []
         
         # Register tools
         self.register_tool(FileReadTool())
@@ -99,7 +106,7 @@ class CodeChatAgent(Agent):
             result = self.llm.invoke(formatted_prompt)
             response = result.content if hasattr(result, 'content') else str(result)
         
-        return response or "❌ Error: Could not generate response"
+        return response or "❌ Không thể tạo phản hồi. Vui lòng cấu hình GROQ_API_KEY hoặc chạy Ollama (ollama serve)."
     
     def chat(self, user_message: str, session_id: Optional[str] = None) -> str:
         """Main chat interface with RAG-enhanced context and long-term memory"""
