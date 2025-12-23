@@ -107,6 +107,7 @@ MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
 
 # Plugins configuration
 AGENT_PLUGINS = [p.strip() for p in os.getenv("AGENT_PLUGINS", "").split(",") if p.strip()]
+GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
 
 # REST API configuration
 API_PORT = int(os.getenv("API_PORT", os.getenv("CHAT_PORT", "5000")))

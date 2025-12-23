@@ -8,7 +8,10 @@ from src.agent.ai_provider import get_default_provider, ProviderAdapter, Composi
 from src.agent.plugins.base import PluginManager
 from src.agent.plugins.auto_comment_on_issue import AutoCommentOnIssuePlugin
 from src.agent.plugins.auto_check_code_quality import AutoCheckCodeQualityPlugin
-from src.core.config import API_TOKEN, API_ALLOWLIST, DEBUG, AGENT_PLUGINS
+from src.core.config import API_TOKEN, API_ALLOWLIST, DEBUG, AGENT_PLUGINS, GITHUB_WEBHOOK_SECRET
+from src.agents.orchestrator import Orchestrator
+import hmac
+import hashlib
 
 app = FastAPI(title="AI Agent REST API", version="1.0")
 app.add_middleware(
@@ -37,6 +40,7 @@ def _auth(credentials: HTTPAuthorizationCredentials = Depends(security), request
 
 base_provider: ProviderBase = get_default_provider()
 adapter = ProviderAdapter(base_provider)
+orchestrator = Orchestrator(adapter)
 
 plugins = PluginManager()
 enabled = set(AGENT_PLUGINS or [])
@@ -106,3 +110,32 @@ def api_status(_: bool = Depends(_auth)):
         ordered = [info(base_provider)]
         ready = base_provider.is_available()
         return {"ready": ready, "providers": ordered, "debug": DEBUG}
+
+
+@app.post("/api/github/webhook")
+async def github_webhook(request: Request, _: bool = Depends(_auth)):
+    body = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256")
+    if GITHUB_WEBHOOK_SECRET:
+        digest = hmac.new(GITHUB_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+        expected = f"sha256={digest}"
+        if signature != expected:
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    event = request.headers.get("X-GitHub-Event", "")
+    payload = await request.json()
+    plugins_result: List[Dict[str, Any]] = []
+    if event == "issues":
+        labels = [l.get("name") for l in (payload.get("issue", {}).get("labels") or [])]
+        local_plugins = PluginManager([AutoCheckCodeQualityPlugin(), AutoCommentOnIssuePlugin()])
+        plugins_result = local_plugins.run_plugins({"type": "issue", "labels": labels, "title": payload.get("issue", {}).get("title")}, {"title": payload.get("issue", {}).get("title")})
+        result = orchestrator.handle_issue_event({"issue": payload.get("issue", {})})
+        return {"status": "ok", "event": event, "result": result, "plugins": plugins_result}
+    if event == "pull_request":
+        pr = payload.get("pull_request", {})
+        labels = [l.get("name") for l in (pr.get("labels") or [])]
+        files_data = payload.get("files", [])
+        local_plugins = PluginManager([AutoCheckCodeQualityPlugin()])
+        plugins_result = local_plugins.run_plugins({"type": "pr", "labels": labels, "files_data": files_data}, {"files_count": len(files_data)})
+        result = orchestrator.handle_pull_request_event({"pull_request": pr, "title": pr.get("title")})
+        return {"status": "ok", "event": event, "result": result, "plugins": plugins_result}
+    return {"status": "ignored", "event": event}
