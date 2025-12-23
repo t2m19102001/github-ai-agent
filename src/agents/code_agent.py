@@ -11,9 +11,9 @@ from src.agents.base import Agent, LLMProvider
 from src.utils.logger import get_logger
 from src.core.config import PROJECT_ROOT, CODE_EXTENSIONS
 from src.config.settings import MAX_CONTEXT_TOKENS
-from src.tools.tools import FileReadTool, FileWriteTool, ListFilesTool
+from src.tools.file_tools import FileReadTool, FileWriteTool, ListFilesTool
 from src.tools.codebase_rag import retrieve, get_context
-from src.tools.git_tool import GitCommitTool, GitBranchTool, GitStatusTool
+from src.tools.git_tool import git_commit, git_create_branch, git_status
 from src.tools.autofix_tool import AutoFixTool, PytestTool
 from src.memory import save_memory, get_memory
 from src.utils.token_manager import TokenManager
@@ -47,9 +47,7 @@ class CodeChatAgent(Agent):
         self.register_tool(ListFilesTool())
         
         # Register Git tools
-        self.register_tool(GitCommitTool())
-        self.register_tool(GitBranchTool())
-        self.register_tool(GitStatusTool())
+        # Note: Git functions are now imported directly, not as Tool classes
         
         # Register Auto-fix tools
         self.register_tool(AutoFixTool(agent=self))
