@@ -8,7 +8,7 @@ from fastapi import FastAPI, WebSocket, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from src.agents.code_agent import CodeChatAgent
-from src.llm.groq import GroqProvider
+from src.agent.ai_provider import get_default_provider, ProviderAdapter
 from src.utils.logger import get_logger
 from src.core.config import DEBUG, CHAT_PORT
 from src.tools.git_tool import git_commit, git_create_branch, git_status, git_diff, git_branch_list, git_log
@@ -25,7 +25,7 @@ app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 templates = Jinja2Templates(directory="src/web/templates")
 
 # Initialize LLM provider
-llm = GroqProvider()
+llm = ProviderAdapter(get_default_provider())
 
 # Store active sessions {session_id: agent}
 active_sessions = {}
@@ -256,4 +256,3 @@ async def api_pytest(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=CHAT_PORT, log_level="info")
-

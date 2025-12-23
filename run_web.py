@@ -28,7 +28,7 @@ def main():
         print_config()
         logger.info("🚀 Starting Code Chat Web Server...")
 
-        # Prefer FastAPI app
+        # Prefer FastAPI app with ProviderBase adapter
         from src.web.app import app as fastapi_app
         print(f"\n{'='*70}")
         print(f"🌐 FastAPI server on http://{CHAT_HOST}:{CHAT_PORT}")

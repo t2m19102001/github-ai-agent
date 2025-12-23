@@ -8,6 +8,9 @@ from typing import Dict, List, Optional, Any
 from github import Github, PullRequest
 from src.agents.base import Agent
 from src.llm.groq import GroqProvider
+from src.agent.plugins.base import PluginManager
+from src.agent.plugins.auto_check_code_quality import AutoCheckCodeQualityPlugin
+from src.core.config import AGENT_PLUGINS
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -39,6 +42,7 @@ class GitHubPRAgent(Agent):
         
         self.github = Github(github_token)
         self.llm = llm_provider or GroqProvider()
+        self.plugins = self._init_plugins()
         logger.info("✅ GitHubPRAgent initialized")
     
     def think(self, prompt: str) -> str:
@@ -92,6 +96,12 @@ class GitHubPRAgent(Agent):
             
             # Analyze changes
             analysis = self._analyze_changes(pr, pr_data)
+
+            # Run plugins for PR event (labels based)
+            labels = [l.name for l in pr.get_labels()]
+            event = {"type": "pr", "labels": labels, "files_data": pr_data["files_changed"]}
+            plugin_results = self.plugins.run_plugins(event, {"repo": repo_name, "pr_number": pr_number})
+            analysis["plugins"] = plugin_results
             
             logger.info(f"✅ Analysis complete for PR #{pr_number}")
             return analysis
@@ -279,8 +289,22 @@ Be thorough but concise. Focus on important issues."""
             # Post comment
             self.post_review_comment(repo_name, pr_number, comment)
             analysis['comment_posted'] = True
+
+        # Post any plugin comments
+        for res in analysis.get("plugins", []):
+            if res.get("action") == "comment" and res.get("comment"):
+                self.post_review_comment(repo_name, pr_number, res.get("comment"))
         
         return analysis
+
+    def _init_plugins(self) -> PluginManager:
+        mgr = PluginManager()
+        enabled = set(AGENT_PLUGINS or [])
+        # Enable AutoCheckCodeQuality by default or when configured
+        if not enabled or "auto_check_code_quality" in enabled:
+            mgr.register(AutoCheckCodeQualityPlugin())
+        # Other plugins can be added here based on env
+        return mgr
     
     def analyze_pr_from_webhook(self, webhook_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """

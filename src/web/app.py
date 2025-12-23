@@ -9,10 +9,8 @@ from fastapi.templating import Jinja2Templates
 import uuid
 
 from src.agents.code_agent import CodeChatAgent
+from src.agent.ai_provider import get_default_provider, ProviderAdapter
 from src.config.settings import PROVIDER, MODELS, GROQ_KEY, LLMProvider
-from src.llm.failover import FailoverProvider
-from src.llm.groq import GroqProvider
-from src.llm.ollama import OllamaProvider
 from src.utils.token_manager import TokenManager
 
 # Validate API keys at startup (with warning instead of crash)
@@ -29,39 +27,8 @@ templates = Jinja2Templates(directory="src/web/templates")
 
 import requests
 
-providers = []
-try:
-    if str(PROVIDER) == "groq":
-        if GROQ_KEY:
-            providers.append(GroqProvider())
-        try:
-            r = requests.get("http://localhost:11434/api/tags", timeout=2)
-            if r.status_code == 200:
-                providers.append(OllamaProvider(model=MODELS[LLMProvider.OLLAMA]))
-        except Exception:
-            pass
-    else:
-        # Prefer Ollama then Groq
-        try:
-            r = requests.get("http://localhost:11434/api/tags", timeout=2)
-            if r.status_code == 200:
-                providers.append(OllamaProvider(model=MODELS[LLMProvider.OLLAMA]))
-        except Exception:
-            pass
-        if GROQ_KEY:
-            providers.append(GroqProvider())
-except Exception as e:
-    print(f"⚠️ Provider init warning: {e}")
-
-if not providers:
-    class DummyLLM:
-        def call(self, messages):
-            return "❌ No LLM providers available. Configure GROQ_API_KEY or start Ollama (ollama serve)"
-    llm = DummyLLM()
-else:
-    llm = FailoverProvider(providers)
-    print(f"🚀 Using Failover LLM with {len(providers)} providers")
-
+base = get_default_provider()
+llm = ProviderAdapter(base)
 agent = CodeChatAgent(llm_provider=llm)
 token_manager = TokenManager()
 

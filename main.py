@@ -34,10 +34,10 @@ def main():
         
         # Import after config validation
         from src.agents.code_agent import CodeChatAgent
-        from src.llm.groq import GroqProvider
+        from src.agent.ai_provider import get_default_provider, ProviderAdapter
         
-        # Create agents
-        llm = GroqProvider()
+        base = get_default_provider()
+        llm = ProviderAdapter(base)
         agent = CodeChatAgent(llm_provider=llm)
         
         logger.info("✅ Agents initialized")
