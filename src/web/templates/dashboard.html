@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub AI Agent Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.active {
+            background: #3498db;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            border-left: 5px solid #3498db;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-left: 5px solid #27ae60;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-select,
+        .search-input {
+            padding: 10px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus,
+        .search-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .issues-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .issues-table th {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .issues-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        .issues-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .issue-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .issue-meta {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .category-bug {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .category-feature {
+            background: #27ae60;
+            color: white;
+        }
+
+        .category-enhancement {
+            background: #f39c12;
+            color: white;
+        }
+
+        .category-documentation {
+            background: #9b59b6;
+            color: white;
+        }
+
+        .priority-high {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .priority-medium {
+            border-left: 4px solid #f39c12;
+        }
+
+        .priority-low {
+            border-left: 4px solid #27ae60;
+        }
+
+        .agent-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-right: 5px;
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+            }
+
+            .nav-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 GitHub AI Agent Dashboard</h1>
+            <div class="nav-buttons">
+                <a href="/" class="nav-btn">📝 Analyze Issue</a>
+                <a href="/dashboard" class="nav-btn active">📊 Dashboard</a>
+                <a href="/logs" class="nav-btn">📋 Logs</a>
+                <a href="/docs" class="nav-btn">📚 API Docs</a>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Statistics Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalIssues">0</div>
+                    <div class="stat-label">Total Issues</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeAgents">2</div>
+                    <div class="stat-label">Active Agents</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="successRate">100%</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgProcessingTime">0.5ms</div>
+                    <div class="stat-label">Avg Processing Time</div>
+                </div>
+            </div>
+
+            <!-- Issues Section -->
+            <div class="section">
+                <h2>📋 Recent Issues Analysis</h2>
+
+                <div class="filter-bar">
+                    <select class="filter-select" id="agentFilter">
+                        <option value="">All Agents</option>
+                        <option value="GitHubIssueAgent">GitHub Issue Agent</option>
+                        <option value="DocumentationAgent">Documentation Agent</option>
+                        <option value="CodeAgent">Code Agent</option>
+                    </select>
+
+                    <select class="filter-select" id="categoryFilter">
+                        <option value="">All Categories</option>
+                        <option value="bug">Bug</option>
+                        <option value="feature">Feature</option>
+                        <option value="enhancement">Enhancement</option>
+                        <option value="documentation">Documentation</option>
+                    </select>
+
+                    <select class="filter-select" id="priorityFilter">
+                        <option value="">All Priorities</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search issues...">
+
+                    <button class="refresh-btn" onclick="loadIssues()">🔄 Refresh</button>
+                </div>
+
+                <div id="issuesLoading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Loading issues...</p>
+                </div>
+
+                <table class="issues-table" id="issuesTable">
+                    <thead>
+                        <tr>
+                            <th>Issue Title</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Agents</th>
+                            <th>Processing Time</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="issuesTableBody">
+                        <!-- Issues will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Agent Status Section -->
+            <div class="section">
+                <h2>🤖 Agent Status</h2>
+                <div id="agentStatus">
+                    <!-- Agent status will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let issues = [];
+        let filteredIssues = [];
+
+        // Load dashboard data
+        async function loadDashboard() {
+            await Promise.all([
+                loadIssues(),
+                loadAgentStatus(),
+                loadStats()
+            ]);
+        }
+
+        // Load issues from API
+        async function loadIssues() {
+            document.getElementById('issuesLoading').style.display = 'block';
+
+            try {
+                // Mock data for now - replace with actual API call
+                issues = [
+                    {
+                        id: 'task_1',
+                        title: 'Bug: Authentication fails on mobile devices',
+                        category: 'bug',
+                        priority: 'high',
+                        agents: ['GitHubIssueAgent', 'DocumentationAgent'],
+                        processingTime: 0.15,
+                        status: 'completed',
+                        timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString()
+                    },
+                    {
+                        id: 'task_2',
+                        title: 'Feature: Add dark mode to dashboard',
+                        category: 'feature',
+                        priority: 'medium',
+                        agents: ['DocumentationAgent'],
+                        processingTime: 0.08,
+                        status: 'completed',
+                        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString()
+                    },
+                    {
+                        id: 'task_3',
+                        title: 'Enhancement: Improve search performance',
+                        category: 'enhancement',
+                        priority: 'low',
+                        agents: ['CodeAgent', 'DocumentationAgent'],
+                        processingTime: 0.22,
+                        status: 'completed',
+                        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString()
+                    }
+                ];
+
+                filteredIssues = [...issues];
+                renderIssues();
+
+            } catch (error) {
+                console.error('Error loading issues:', error);
+            } finally {
+                document.getElementById('issuesLoading').style.display = 'none';
+            }
+        }
+
+        // Load agent status
+        async function loadAgentStatus() {
+            try {
+                const response = await fetch('/agents/status');
+                const data = await response.json();
+
+                const statusContainer = document.getElementById('agentStatus');
+                statusContainer.innerHTML = '';
+
+                if (data.agents) {
+                    data.agents.forEach(agent => {
+                        const agentCard = document.createElement('div');
+                        agentCard.style.cssText = 'display: inline-block; margin: 10px; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
+                        agentCard.innerHTML = `
+                            <h4 style="color: #2c3e50; margin-bottom: 10px;">${agent.name}</h4>
+                            <p style="color: #7f8c8d; margin: 5px 0;">Type: ${agent.type}</p>
+                            <p style="color: #27ae60; margin: 5px 0;">Status: ${agent.status}</p>
+                        `;
+                        statusContainer.appendChild(agentCard);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading agent status:', error);
+            }
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                // Mock stats - replace with actual API calls
+                document.getElementById('totalIssues').textContent = issues.length;
+                document.getElementById('activeAgents').textContent = '2';
+                document.getElementById('successRate').textContent = '100%';
+
+                const avgTime = issues.length > 0
+                    ? (issues.reduce((sum, issue) => sum + issue.processingTime, 0) / issues.length).toFixed(2)
+                    : '0';
+                document.getElementById('avgProcessingTime').textContent = `${avgTime}ms`;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Render issues table
+        function renderIssues() {
+            const tbody = document.getElementById('issuesTableBody');
+            tbody.innerHTML = '';
+
+            filteredIssues.forEach(issue => {
+                const row = document.createElement('tr');
+                row.className = `priority-${issue.priority}`;
+
+                const categoryClass = `category-${issue.category}`;
+                const statusColor = issue.status === 'completed' ? '#27ae60' : '#f39c12';
+
+                row.innerHTML = `
+                    <td>
+                        <div class="issue-title">${issue.title}</div>
+                        <div class="issue-meta">ID: ${issue.id}</div>
+                    </td>
+                    <td>
+                        <span class="category-badge ${categoryClass}">${issue.category}</span>
+                    </td>
+                    <td>
+                        <span style="text-transform: capitalize; font-weight: 600;">${issue.priority}</span>
+                    </td>
+                    <td>
+                        ${issue.agents.map(agent => `<span class="agent-tag">${agent}</span>`).join('')}
+                    </td>
+                    <td>${issue.processingTime}ms</td>
+                    <td>
+                        <span style="color: ${statusColor}; font-weight: 600;">${issue.status}</span>
+                    </td>
+                    <td>${new Date(issue.timestamp).toLocaleString()}</td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        }
+
+        // Filter issues
+        function filterIssues() {
+            const agentFilter = document.getElementById('agentFilter').value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+            const priorityFilter = document.getElementById('priorityFilter').value.toLowerCase();
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            filteredIssues = issues.filter(issue => {
+                const matchesAgent = !agentFilter || issue.agents.some(agent => agent.toLowerCase().includes(agentFilter));
+                const matchesCategory = !categoryFilter || issue.category === categoryFilter;
+                const matchesPriority = !priorityFilter || issue.priority === priorityFilter;
+                const matchesSearch = !searchTerm || issue.title.toLowerCase().includes(searchTerm);
+
+                return matchesAgent && matchesCategory && matchesPriority && matchesSearch;
+            });
+
+            renderIssues();
+        }
+
+        // Event listeners
+        document.getElementById('agentFilter').addEventListener('change', filterIssues);
+        document.getElementById('categoryFilter').addEventListener('change', filterIssues);
+        document.getElementById('priorityFilter').addEventListener('change', filterIssues);
+        document.getElementById('searchInput').addEventListener('input', filterIssues);
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadDashboard, 30000);
+
+        // Initial load
+        loadDashboard();
+    </script>
+</body>
+
+</html>

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,7 +23,7 @@
             margin: 0 auto;
             background: white;
             border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             overflow: hidden;
         }
 
@@ -38,7 +37,7 @@
         .header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
         .header p {
@@ -141,13 +140,8 @@
         }
 
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .results-section {
@@ -160,13 +154,13 @@
             padding: 25px;
             margin-bottom: 20px;
             border-left: 5px solid #27ae60;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
             transition: all 0.3s ease;
         }
 
         .result-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
         }
 
         .result-card.error {
@@ -260,18 +254,17 @@
             .form-row {
                 grid-template-columns: 1fr;
             }
-
+            
             .stats-grid {
                 grid-template-columns: 1fr;
             }
-
+            
             .main-content {
                 padding: 20px;
             }
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div class="header">
@@ -285,20 +278,21 @@
                 <form id="issueForm">
                     <div class="form-group">
                         <label for="title">Issue Title *</label>
-                        <input type="text" id="title" name="title" required
-                            placeholder="e.g., Bug: Login fails on mobile">
+                        <input type="text" id="title" name="title" required 
+                               placeholder="e.g., Bug: Login fails on mobile">
                     </div>
 
                     <div class="form-group">
                         <label for="body">Issue Description *</label>
-                        <textarea id="body" name="body" required
-                            placeholder="Describe the issue in detail..."></textarea>
+                        <textarea id="body" name="body" required 
+                                  placeholder="Describe the issue in detail..."></textarea>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label for="file">Related File</label>
-                            <input type="text" id="file" name="file" placeholder="e.g., auth.py, login.js">
+                            <input type="text" id="file" name="file" 
+                                   placeholder="e.g., auth.py, login.js">
                         </div>
 
                         <div class="form-group">
@@ -314,7 +308,8 @@
 
                     <div class="form-group">
                         <label for="labels">Labels (comma-separated)</label>
-                        <input type="text" id="labels" name="labels" placeholder="e.g., bug, urgent, frontend">
+                        <input type="text" id="labels" name="labels" 
+                               placeholder="e.g., bug, urgent, frontend">
                     </div>
 
                     <button type="submit" class="btn" id="analyzeBtn">
@@ -365,13 +360,13 @@
     <script>
         document.getElementById('issueForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-
+            
             // Show loading
             document.getElementById('loadingSection').style.display = 'block';
             document.getElementById('resultsSection').style.display = 'none';
             document.getElementById('errorSection').style.display = 'none';
             document.getElementById('analyzeBtn').disabled = true;
-
+            
             // Get form data
             const formData = new FormData(e.target);
             const issue = {
@@ -382,7 +377,7 @@
                 labels: formData.get('labels') ? formData.get('labels').split(',').map(l => l.trim()) : [],
                 title_embedding: Array(128).fill(0).map(() => Math.random()) // Mock embedding
             };
-
+            
             try {
                 // Send request to API
                 const response = await fetch('/analyze_issue', {
@@ -392,9 +387,9 @@
                     },
                     body: JSON.stringify(issue)
                 });
-
+                
                 const data = await response.json();
-
+                
                 if (response.ok) {
                     displayResults(data);
                 } else {
@@ -408,19 +403,19 @@
                 document.getElementById('analyzeBtn').disabled = false;
             }
         });
-
+        
         function displayResults(data) {
             // Display summary
             document.getElementById('summaryText').textContent = data.summary;
-
+            
             // Display agent results
             const resultsContainer = document.getElementById('agentResults');
             resultsContainer.innerHTML = '';
-
+            
             data.results.forEach(result => {
                 const resultCard = document.createElement('div');
                 resultCard.className = `result-card ${result.success ? '' : 'error'}`;
-
+                
                 resultCard.innerHTML = `
                     <div class="agent-name">
                         ${result.agent_name}
@@ -434,24 +429,24 @@
                         <span>Agent: ${result.agent_name}</span>
                     </div>
                 `;
-
+                
                 if (result.error) {
                     resultCard.innerHTML += `<div class="error-message">Error: ${result.error}</div>`;
                 }
-
+                
                 resultsContainer.appendChild(resultCard);
             });
-
+            
             // Update stats
             document.getElementById('totalAgents').textContent = data.results.length;
             document.getElementById('successfulAgents').textContent = data.results.filter(r => r.success).length;
             document.getElementById('totalTime').textContent = data.total_time.toFixed(2) + 's';
             document.getElementById('taskId').textContent = data.task_id.substring(0, 8) + '...';
-
+            
             // Show results
             document.getElementById('resultsSection').style.display = 'block';
         }
-
+        
         function displayError(message) {
             const errorSection = document.getElementById('errorSection');
             errorSection.innerHTML = `
@@ -462,7 +457,7 @@
             `;
             errorSection.style.display = 'block';
         }
-
+        
         // Add some sample data for testing
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('title').value = 'Bug: Authentication fails on mobile devices';
@@ -471,6 +466,57 @@
             document.getElementById('priority').value = 'high';
             document.getElementById('labels').value = 'bug, mobile, urgent, authentication';
         });
+    </script>
+</body>
+</html>
+
+<body class="bg-gray-900 text-gray-100">
+    <div class="max-w-4xl mx-auto p-6 h-screen flex flex-col">
+        <h1 class="text-3xl font-bold text-center mb-8 text-cyan-400">My Private Copilot</h1>
+
+        <div id="chat" class="flex-1 overflow-y-auto mb-4 space-y-4"></div>
+
+        <form id="form" class="flex gap-3">
+            <textarea id="msg" autocomplete="off" rows="3"
+                placeholder="Gõ /help để xem commands | /autofix | commit nhé | tạo branch..."
+                class="flex-1 bg-gray-800 rounded-lg px-5 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"></textarea>
+            <button type="submit" class="bg-cyan-600 hover:bg-cyan-500 px-8 py-3 rounded-lg font-medium">Gửi</button>
+        </form>
+        <div class="text-center text-sm text-gray-500 mt-2">
+            💡 Commands: <span class="text-cyan-400">/help</span> | <span class="text-cyan-400">/autofix</span> | <span
+                class="text-cyan-400">/test</span> | <span class="text-cyan-400">commit nhé</span>
+        </div>
+    </div>
+
+    <script>
+        const sessionId = "{{ request.client.host }}-" + Date.now();
+        const ws = new WebSocket(`ws://${location.host}/ws/${sessionId}`);
+
+        ws.onmessage = (event) => {
+            const chat = document.getElementById("chat");
+            const div = document.createElement("div");
+            div.className = "bg-gray-800 rounded-lg p-4 max-w-3xl ml-auto whitespace-pre-line leading-relaxed";
+            div.textContent = event.data;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        };
+
+        document.getElementById("form").onsubmit = (e) => {
+            e.preventDefault();
+            const input = document.getElementById("msg");
+            if (!input.value.trim()) return;
+
+            // Hiển thị tin nhắn người dùng
+            const chat = document.getElementById("chat");
+            const userDiv = document.createElement("div");
+            userDiv.className = "bg-cyan-900 rounded-lg p-4 max-w-3xl mr-auto whitespace-pre-line leading-relaxed";
+            userDiv.textContent = input.value;
+            chat.appendChild(userDiv);
+
+            ws.send(input.value);
+            input.value = "";
+            chat.scrollTop = chat.scrollHeight;
+        };
     </script>
 </body>
 

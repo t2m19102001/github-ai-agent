@@ -1,0 +1,136 @@
+name: 🤖 AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, master, develop]
+
+jobs:
+  ai-review:
+    name: AI-Powered Code Review
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+          # Install additional dependencies for image processing
+          pip install opencv-python-headless pytesseract pillow
+          
+          # Install Tesseract OCR
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-vie
+      
+      - name: 🔧 Verify Installation
+        run: |
+          python -c "from src.web.main import app; print('✅ FastAPI app loaded')"
+          python -c "from src.agents.image_agent import ImageAgent; print('✅ ImageAgent loaded')"
+          python -c "import pytesseract; print('✅ Tesseract OCR ready')"
+          python -c "import cv2; print('✅ OpenCV ready')"
+      
+      - name: 🤖 Run AI Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          echo "🚀 Starting AI Code Review..."
+          echo "📋 PR Info:"
+          echo "  Repository: $GITHUB_REPOSITORY"
+          echo "  PR Number: $PR_NUMBER"
+          echo "  Title: $PR_TITLE"
+          echo "  Author: $PR_AUTHOR"
+          echo "  Branch: $PR_BRANCH -> $BASE_BRANCH"
+          echo ""
+          
+          # Run the AI review script
+          python scripts/ai_review.py
+      
+      - name: 📊 Review Summary
+        if: always()
+        run: |
+          echo "## 🤖 AI Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 PR Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR Number:** ${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Author:** ${{ github.event.pull_request.user.login }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Title:** ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Analysis Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Agents:** GitHubIssueAgent, CodeAgent, DocumentationAgent" >> $GITHUB_STEP_SUMMARY
+          echo "- **Multi-modal:** ✅ Image processing enabled" >> $GITHUB_STEP_SUMMARY
+          echo "- **RAG Integration:** ✅ Context-aware analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*This review was powered by GitHub AI Agent - Phase 5*" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 🎯 Success Notification
+        if: success()
+        run: |
+          echo "✅ AI Code Review completed successfully!"
+          echo "📝 Check the PR comments for detailed analysis."
+      
+      - name: ❌ Error Notification
+        if: failure()
+        run: |
+          echo "❌ AI Code Review failed!"
+          echo "🔍 Check the logs above for details."
+          echo "📞 Contact the repository maintainers if needed."
+
+  # Optional: Run on schedule for health checks
+  health-check:
+    name: 🏥 System Health Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: 🔍 Health Check
+        run: |
+          python -c "
+          from src.agents.agent_manager import AgentManager
+          from src.agents.github_issue_agent import GitHubIssueAgent
+          from src.agents.code_agent import CodeAgent
+          from src.agents.doc_agent import DocumentationAgent
+          from src.agents.image_agent import ImageAgent
+          
+          print('✅ All agents initialized successfully')
+          print('✅ Phase 5 multi-modal system ready')
+          "

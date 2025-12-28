@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Analyzer - GitHub AI Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .upload-section,
+        .results-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: "🖼️";
+            font-size: 1.8rem;
+        }
+
+        .results-section .section-title::before {
+            content: "📊";
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .upload-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .upload-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .preview-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .results-content {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .result-item {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .result-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .error-message {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .success-message {
+            background: #e8f5e8;
+            border-left: 4px solid #4CAF50;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f44336, #ff9800, #4CAF50);
+            transition: width 0.5s ease;
+        }
+
+        .navigation {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .nav-link {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="navigation">
+            <a href="/" class="nav-link">🏠 Home</a>
+            <a href="/dashboard" class="nav-link">📊 Dashboard</a>
+            <a href="/logs-page" class="nav-link">📋 Logs</a>
+            <a href="/image-page" class="nav-link active">🖼️ Image Analysis</a>
+        </div>
+
+        <div class="header">
+            <h1>🖼️ Image Analysis</h1>
+            <p>Upload screenshots, diagrams, or images for AI-powered analysis</p>
+        </div>
+
+        <div class="main-content">
+            <div class="upload-section">
+                <h2 class="section-title">Upload Image</h2>
+
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📤</div>
+                    <div class="upload-text">
+                        Drag & drop an image here or click to browse
+                    </div>
+                    <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                        Choose File
+                    </button>
+                    <input type="file" id="fileInput" class="file-input" accept="image/*">
+                </div>
+
+                <div class="preview-container" id="previewContainer" style="display: none;">
+                    <h3>Preview:</h3>
+                    <img id="previewImage" class="preview-image" alt="Preview">
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h2 class="section-title">Analysis Results</h2>
+
+                <div id="resultsContent" class="results-content">
+                    <div style="text-align: center; color: #666; padding: 40px;">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">🔍</div>
+                        <p>Upload an image to see analysis results</p>
+                        <p style="font-size: 0.9rem; margin-top: 10px;">
+                            Supported formats: PNG, JPG, JPEG, GIF, BMP
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImage = document.getElementById('previewImage');
+        const resultsContent = document.getElementById('resultsContent');
+
+        // Drag and drop handlers
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // File input handler
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Handle file selection and preview
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please select an image file');
+                return;
+            }
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            // Analyze image
+            analyzeImage(file);
+        }
+
+        // Analyze image function
+        async function analyzeImage(file) {
+            showLoading();
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/analyze_image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayResults(data.results);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError(`Analysis failed: ${error.message}`);
+            }
+        }
+
+        // Show loading state
+        function showLoading() {
+            resultsContent.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing image with AI...</p>
+                    <p style="font-size: 0.9rem; color: #666;">
+                        This may take a few seconds
+                    </p>
+                </div>
+            `;
+        }
+
+        // Display analysis results
+        function displayResults(results) {
+            if (!results.success) {
+                showError(results.error || 'Analysis failed');
+                return;
+            }
+
+            let html = `
+                <div class="success-message">
+                    ✅ Analysis completed successfully!
+                </div>
+            `;
+
+            // Extracted text
+            if (results.extracted_text) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">📝 Extracted Text:</div>
+                        <div class="result-value">${escapeHtml(results.extracted_text)}</div>
+                    </div>
+                `;
+            }
+
+            // Diagram info
+            if (results.diagram_info) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">📊 Diagram Analysis:</div>
+                        <div class="result-value">${escapeHtml(results.diagram_info)}</div>
+                    </div>
+                `;
+            }
+
+            // Error messages
+            if (results.error_messages && results.error_messages.length > 0) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">🚨 Detected Errors:</div>
+                        <div class="result-value">
+                            <ul style="margin-left: 20px;">
+                                ${results.error_messages.map(msg => `<li>${escapeHtml(msg)}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Bug analysis
+            if (results.bug_analysis) {
+                const bugAnalysis = results.bug_analysis;
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">🐛 Bug Analysis:</div>
+                        <div class="result-value">
+                            <strong>Type:</strong> ${escapeHtml(bugAnalysis.likely_bug_type || 'Unknown')}<br>
+                            <strong>Errors Found:</strong> ${bugAnalysis.error_count || 0}<br>
+                            ${bugAnalysis.suggested_fixes ? `
+                                <strong>Suggested Fixes:</strong>
+                                <ul style="margin-left: 20px;">
+                                    ${bugAnalysis.suggested_fixes.map(fix => `<li>${escapeHtml(fix)}</li>`).join('')}
+                                </ul>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Confidence score
+            if (results.confidence_score !== undefined) {
+                const confidence = results.confidence_score;
+                const confidencePercent = Math.round(confidence * 100);
+                const confidenceColor = confidence > 0.7 ? '#4CAF50' : confidence > 0.4 ? '#ff9800' : '#f44336';
+
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">🎯 Confidence Score:</div>
+                        <div class="result-value">
+                            ${confidencePercent}% - ${getConfidenceLabel(confidence)}
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${confidencePercent}%; background: ${confidenceColor};"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Related docs
+            if (results.related_docs && results.related_docs.length > 0) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">📚 Related Documentation:</div>
+                        <div class="result-value">
+                            ${results.related_docs.map(doc => `
+                                <div style="background: #f0f0f0; padding: 10px; margin: 5px 0; border-radius: 5px;">
+                                    <strong>Score:</strong> ${doc.score?.toFixed(3) || 'N/A'}<br>
+                                    <strong>Content:</strong> ${escapeHtml(doc.content || doc)}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Stats grid
+            if (results.structural_elements && results.structural_elements.length > 0) {
+                html += `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${results.structural_elements.length}</div>
+                            <div class="stat-label">Structural Elements</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${results.extracted_text ? results.extracted_text.length : 0}</div>
+                            <div class="stat-label">Characters Extracted</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${results.error_messages ? results.error_messages.length : 0}</div>
+                            <div class="stat-label">Errors Detected</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultsContent.innerHTML = html;
+        }
+
+        // Show error message
+        function showError(message) {
+            resultsContent.innerHTML = `
+                <div class="error-message">
+                    ❌ ${escapeHtml(message)}
+                </div>
+            `;
+        }
+
+        // Get confidence label
+        function getConfidenceLabel(confidence) {
+            if (confidence > 0.8) return 'Very High';
+            if (confidence > 0.6) return 'High';
+            if (confidence > 0.4) return 'Medium';
+            if (confidence > 0.2) return 'Low';
+            return 'Very Low';
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
