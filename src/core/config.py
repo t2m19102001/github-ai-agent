@@ -5,9 +5,15 @@ Environment-based settings and constants
 """
 
 import os
+import importlib.util
 from pathlib import Path
-from dotenv import load_dotenv
 from typing import Literal
+
+if importlib.util.find_spec("dotenv"):
+    from dotenv import load_dotenv
+else:
+    def load_dotenv(*args, **kwargs):
+        return False
 
 # Load environment variables
 load_dotenv()
