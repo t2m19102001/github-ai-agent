@@ -87,12 +87,14 @@ class PlannerAgent:
             except Exception as e:
                 logger.warning(f"RAG query failed: {e}")
         
+        rag_section = f"Relevant Code Context:\n{rag_context}" if rag_context else ""
+
         prompt = f"""
 You are a Planner Agent. Analyze the task and create a detailed execution plan.
 
 Task: {task}
 Context: {state.task_data}
-{f"Relevant Code Context:\n{rag_context}" if rag_context else ""}
+{rag_section}
 
 Provide:
 1. Task breakdown into specific steps

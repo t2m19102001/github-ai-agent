@@ -8,6 +8,7 @@ import json
 import hmac
 import hashlib
 import time
+import logging
 from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
 from fastapi import Request
@@ -20,6 +21,8 @@ from src.web.webhooks import (
     webhook_metrics
 )
 from src.security.guardrails import SecurityError, security_guardrails
+
+logger = logging.getLogger(__name__)
 
 
 class TestWebhookSecurity:
