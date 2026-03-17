@@ -160,7 +160,7 @@ class TestGitHubIssueAgent:
             
             assert "Issue Analysis: #123" in response
             assert "Test Issue" in response
-            assert "Categorization" in response
+            assert "Classification" in response
             assert "Suggested Labels" in response
     
     @pytest.mark.asyncio
@@ -389,6 +389,42 @@ class TestGitHubIssueAgent:
         number3 = agent._extract_issue_number(message3)
         assert number3 is None
     
+
+    def test_build_root_cause_hypotheses_bug(self, agent):
+        analysis = IssueAnalysis(
+            issue_number=1,
+            title="Bug issue",
+            category="Bug",
+            priority="High",
+            complexity="Medium",
+            estimated_time="4-8 hours",
+            suggested_labels=["Bug"],
+            suggested_assignee=None,
+            analysis_summary="summary",
+            confidence=0.8
+        )
+
+        hypotheses = agent._build_root_cause_hypotheses(analysis)
+        assert "Regression introduced" in hypotheses
+
+    def test_build_next_steps_critical_high_complexity(self, agent):
+        analysis = IssueAnalysis(
+            issue_number=1,
+            title="Critical issue",
+            category="Bug",
+            priority="Critical",
+            complexity="High",
+            estimated_time="1-3 days",
+            suggested_labels=["Bug"],
+            suggested_assignee=None,
+            analysis_summary="summary",
+            confidence=0.9
+        )
+
+        steps = agent._build_next_steps(analysis)
+        assert "Triage immediately" in steps
+        assert "incremental PRs" in steps
+
     def test_calculate_confidence(self, agent):
         """Test confidence calculation"""
         text = "This is a clear bug description with detailed information"
