@@ -127,7 +127,7 @@ jobs:
           python -c "
           from src.agents.agent_manager import AgentManager
           from src.agents.github_issue_agent import GitHubIssueAgent
-          from src.agents.code_agent import CodeAgent
+          from src.agents.code_agent import CodeChatAgent
           from src.agents.doc_agent import DocumentationAgent
           from src.agents.image_agent import ImageAgent
           
