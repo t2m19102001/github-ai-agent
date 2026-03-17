@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 FastAPI Main Application
-GitHub AI Agent - Phase 3 Multi-agent Workflow API
+GitHub AI Agent - Phase 5 Multi-agent Workflow API
 """
 
 import os
@@ -316,7 +316,7 @@ async def search_memory(query: str):
                 {
                     "key": entry.key,
                     "value": entry.value,
-                    "memory_type": entry.memory_type,
+                    "memory_type": entry.type,
                     "importance": entry.importance,
                     "timestamp": entry.timestamp.isoformat()
                 }
@@ -415,7 +415,7 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
-    logger.info("GitHub AI Agent - Phase 3 starting up...")
+    logger.info("GitHub AI Agent - Phase 5 starting up...")
     
     # Create data directories
     os.makedirs("data", exist_ok=True)
