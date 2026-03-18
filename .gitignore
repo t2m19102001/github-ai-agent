@@ -46,3 +46,7 @@ logs/
 
 # Long-term memory store
 .memory/
+
+# JS dependencies
+vscode-extension/node_modules/
+node_modules/

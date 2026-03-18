@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
 FastAPI Main Application
-GitHub AI Agent - Phase 3 Multi-agent Workflow API
+GitHub AI Agent - Phase 5 Multi-agent Workflow API
 """
 
 import os
 import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent.parent
@@ -21,9 +20,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 import uvicorn
 import asyncio
-import json
 import tempfile
-import os
 
 # Import logging system
 from src.memory.log_manager import get_logs, get_log_stats, log_activity
@@ -38,6 +35,7 @@ from src.rag.vector_store import VectorStore
 from src.memory.memory_manager import MemoryManager
 from src.llm.provider import get_llm_provider
 from src.utils.logger import get_logger
+from src.utils.embeddings import text_to_embedding
 
 logger = get_logger(__name__)
 
@@ -83,9 +81,6 @@ image_agent_with_rag = ImageAgent(
     rag_store=vector_store,
     config={"test_mode": True}
 )
-
-# Templates
-templates = Jinja2Templates(directory="src/web/templates")
 
 # Pydantic models
 class IssueInput(BaseModel):
@@ -321,7 +316,7 @@ async def search_memory(query: str):
                 {
                     "key": entry.key,
                     "value": entry.value,
-                    "memory_type": entry.memory_type,
+                    "memory_type": entry.type,
                     "importance": entry.importance,
                     "timestamp": entry.timestamp.isoformat()
                 }
@@ -381,9 +376,8 @@ async def get_vector_store_stats():
 async def search_vector_store(query: str, k: int = 5):
     """Search vector store for similar documents"""
     try:
-        # Generate simple embedding for demo
-        import numpy as np
-        query_embedding = np.random.rand(128)
+        # Generate deterministic embedding for repeatable results
+        query_embedding = text_to_embedding(query, 128)
         
         results = vector_store.search(query_embedding, k=k)
         return {
@@ -407,8 +401,8 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "version": "3.0.0",
-        "phase": "Phase 3 - Advanced Intelligence",
+        "version": "5.0.0",
+        "phase": "Phase 5 - Multi-modal & Integrations",
         "components": {
             "vector_store": "active",
             "memory_manager": "active",
@@ -417,14 +411,11 @@ async def health_check():
         }
     }
 
-# Static files
-app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
-
 # Startup event
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
-    logger.info("GitHub AI Agent - Phase 3 starting up...")
+    logger.info("GitHub AI Agent - Phase 5 starting up...")
     
     # Create data directories
     os.makedirs("data", exist_ok=True)
@@ -439,9 +430,8 @@ async def startup_event():
         ("RAG implementation with vector databases", {"type": "tutorial", "topic": "rag"})
     ]
     
-    import numpy as np
     for content, metadata in sample_docs:
-        embedding = np.random.rand(128)
+        embedding = text_to_embedding(content, 128)
         vector_store.add_document(content, metadata, embedding)
     
     logger.info("Application startup complete")
