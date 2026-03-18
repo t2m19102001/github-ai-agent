@@ -38,7 +38,7 @@ jobs:
           MODE: cloud
           DEBUG: 'false'
         run: |
-          python src/agents/github_issue_agent.py
+          python scripts/run_ai_agent.py
 
       - name: Upload logs (on failure)
         if: failure()
