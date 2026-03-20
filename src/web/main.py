@@ -442,7 +442,6 @@ async def startup_event():
         logger.info("Seeded vector store with sample documents")
     else:
         logger.info("Vector store already contains documents; skipping sample seed")
-
     logger.info("Application startup complete")
 
 # Shutdown event
