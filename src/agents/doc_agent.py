@@ -5,6 +5,7 @@ Specializes in searching and analyzing documentation
 """
 
 import asyncio
+import re
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 

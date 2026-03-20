@@ -209,23 +209,38 @@ What would you like me to help with?"""
             # Analyze the issue
             analysis = await self.analyze_issue(target_issue)
             
-            # Format response
+            next_steps = self._build_next_steps(analysis)
+            potential_root_causes = self._build_root_cause_hypotheses(analysis)
+
+            # Format response (actionable structure)
             response = f"""## Issue Analysis: #{issue_number} - {target_issue.title}
 
-### 📊 Analysis Summary
+### 📊 Executive Summary
 {analysis.analysis_summary}
 
-### 🏷️ Categorization
+### 🏷️ Classification
 - **Category**: {analysis.category}
 - **Priority**: {analysis.priority}
 - **Complexity**: {analysis.complexity}
 - **Estimated Time**: {analysis.estimated_time}
 
-### 🏷️ Suggested Labels
+### 🧠 Potential Root Causes
+{potential_root_causes}
+
+### ✅ Suggested Labels
 {', '.join([f'`{label}`' for label in analysis.suggested_labels])}
 
 ### 👥 Suggested Assignee
 {analysis.suggested_assignee or 'No specific assignee suggested'}
+
+### 🛠️ Action Plan (Next 5 Steps)
+{next_steps}
+
+### 🧪 Validation & Testing Plan
+- Reproduce on latest main branch and capture logs/screenshots.
+- Add/adjust test coverage for the failing scenario.
+- Verify no regression in related flows after applying fix.
+- Document root cause + final fix in PR description.
 
 ### 💡 Recommendations
 {await self._generate_recommendations(analysis)}
@@ -449,6 +464,55 @@ Provide a 2-3 sentence summary of what this issue is about and what needs to be 
         
         return await self.generate_response(prompt)
     
+
+    def _build_root_cause_hypotheses(self, analysis: IssueAnalysis) -> str:
+        """Build potential root cause hypotheses based on current analysis."""
+        hypotheses = []
+
+        if analysis.category == "Bug":
+            hypotheses.extend([
+                "- Input/data edge-case is not handled in current code path.",
+                "- Regression introduced by a recent change in related module.",
+                "- Missing guard clauses around external API/service failures."
+            ])
+        elif analysis.category == "Feature":
+            hypotheses.extend([
+                "- Missing implementation for requested capability in current architecture.",
+                "- Existing abstractions do not yet expose required extension points.",
+                "- Requirement may need decomposition into smaller deliverables."
+            ])
+        elif analysis.category == "Documentation":
+            hypotheses.extend([
+                "- Implementation changed but docs were not updated in the same PR.",
+                "- Examples are outdated vs current public API behavior.",
+                "- Missing usage guide for new/changed feature paths."
+            ])
+        else:
+            hypotheses.extend([
+                "- Need more context from reproduction details and environment.",
+                "- Scope may involve both product behavior and documentation gaps."
+            ])
+
+        return "\n".join(hypotheses)
+
+    def _build_next_steps(self, analysis: IssueAnalysis) -> str:
+        """Build prioritized actionable next steps for maintainers."""
+        steps = [
+            "1. Reproduce and confirm exact scope of the issue.",
+            "2. Identify impacted modules/files and propose minimal fix set.",
+            "3. Implement fix with defensive checks and clear error handling.",
+            "4. Add/update tests to cover the reported behavior.",
+            "5. Validate in CI and publish remediation summary in PR."
+        ]
+
+        if analysis.priority == "Critical":
+            steps[0] = "1. Triage immediately, assign owner, and reproduce in priority environment."
+
+        if analysis.complexity == "High":
+            steps[2] = "3. Split implementation into incremental PRs with review checkpoints."
+
+        return "\n".join(steps)
+
     async def _generate_recommendations(self, analysis: IssueAnalysis) -> str:
         """Generate recommendations based on analysis"""
         recommendations = []
