@@ -13,12 +13,13 @@ from src.utils.logger import get_logger
 from src.core.config import DEBUG, CHAT_PORT
 from src.tools.git_tool import git_commit, git_create_branch, git_status, git_diff, git_branch_list, git_log
 from src.tools.autofix_tool import run_pytest, auto_fix
+from src import __version__
 import uuid
 import json
 
 logger = get_logger(__name__)
 
-app = FastAPI(title="GitHub AI Agent", version="2.0")
+app = FastAPI(title="GitHub AI Agent", version=__version__)
 
 # Static files and templates
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
