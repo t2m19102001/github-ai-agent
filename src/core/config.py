@@ -40,8 +40,6 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 # ============================================================================
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
-GITHUB_APP_KEY = os.getenv("GITHUB_APP_KEY")
 REPO_FULL_NAME = os.getenv("REPO_FULL_NAME")
 
 # ============================================================================
@@ -127,30 +125,25 @@ API_ALLOWLIST = [ip.strip() for ip in os.getenv("API_ALLOWLIST", "").split(",") 
 # Validation
 # ============================================================================
 
-def validate_config(strict: bool = False):
-    """Validate configuration, returning warnings for optional integrations by default."""
+def validate_config():
+    """Validate configuration"""
     errors = []
-    warnings = []
-
     if not GITHUB_TOKEN:
-        warnings.append("GITHUB_TOKEN not set (GitHub features disabled)")
+        errors.append("GITHUB_TOKEN not set (GitHub features disabled)")
     if not REPO_FULL_NAME:
-        warnings.append("REPO_FULL_NAME not set (PR analysis disabled)")
-
+        errors.append("REPO_FULL_NAME not set (PR analysis disabled)")
     if LLM_PROVIDER in ("groq", "openai"):
         if LLM_PROVIDER == "groq" and not GROQ_API_KEY:
             errors.append("GROQ_API_KEY is required when LLM_PROVIDER=groq")
         if LLM_PROVIDER == "openai" and not HUGGINGFACE_TOKEN and not os.getenv("OPENAI_API_KEY"):
             errors.append("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
-
-    if strict and warnings:
-        errors.extend(warnings)
-
+    else:
+        if not (GROQ_API_KEY or HUGGINGFACE_TOKEN):
+            # Only warn when using local provider
+            pass
+    
     if errors:
-        joined_errors = "\n".join(f"  - {e}" for e in errors)
-        raise ValueError(f"Configuration errors:\n{joined_errors}")
-
-    return warnings
+        raise ValueError("Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors))
 
 # ============================================================================
 # Summary

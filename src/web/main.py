@@ -35,8 +35,6 @@ from src.rag.vector_store import VectorStore
 from src.memory.memory_manager import MemoryManager
 from src.llm.provider import get_llm_provider
 from src.utils.logger import get_logger
-from src import __version__
-from src.core.config import validate_config
 from src.utils.embeddings import text_to_embedding
 
 logger = get_logger(__name__)
@@ -45,7 +43,7 @@ logger = get_logger(__name__)
 app = FastAPI(
     title="GitHub AI Agent API",
     description="Multi-agent workflow for GitHub issue analysis - Phase 5",
-    version=__version__,
+    version="5.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -403,7 +401,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "version": __version__,
+        "version": "5.0.0",
         "phase": "Phase 5 - Multi-modal & Integrations",
         "components": {
             "vector_store": "active",
@@ -423,9 +421,7 @@ async def startup_event():
     os.makedirs("data", exist_ok=True)
     os.makedirs("data/vector_store", exist_ok=True)
     
-    validate_config()
-
-    # Add sample documents only when the store is empty to keep startup idempotent
+    # Add some sample documents to vector store
     sample_docs = [
         ("Authentication flow example using JWT tokens", {"type": "tutorial", "topic": "auth"}),
         ("Error handling best practices in Python", {"type": "guide", "topic": "error-handling"}),
@@ -433,15 +429,11 @@ async def startup_event():
         ("Multi-agent coordination patterns", {"type": "architecture", "topic": "agents"}),
         ("RAG implementation with vector databases", {"type": "tutorial", "topic": "rag"})
     ]
-
-    if vector_store.get_stats().get("total_documents", 0) == 0:
-        for content, metadata in sample_docs:
-            embedding = text_to_embedding(content, 128)
-            vector_store.add_document(content, metadata, embedding=embedding)
-        vector_store.save()
-        logger.info("Seeded vector store with sample documents")
-    else:
-        logger.info("Vector store already contains documents; skipping sample seed")
+    
+    for content, metadata in sample_docs:
+        embedding = text_to_embedding(content, 128)
+        vector_store.add_document(content, metadata, embedding)
+    
     logger.info("Application startup complete")
 
 # Shutdown event

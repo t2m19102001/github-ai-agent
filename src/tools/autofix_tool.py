@@ -4,7 +4,6 @@ Auto Test & Fix Tool
 Automatically runs tests, detects failures, and fixes code using AI agent
 """
 
-import shlex
 import subprocess
 from typing import Dict, Any, Optional
 from src.utils.logger import get_logger
@@ -23,42 +22,22 @@ def run_pytest(test_args: str = "-q") -> Dict[str, Any]:
         Dict with test results
     """
     try:
-        command = ["pytest", *shlex.split(test_args)]
         result = subprocess.run(
-            command,
+            ["pytest", test_args],
             capture_output=True,
             text=True,
             timeout=60
         )
-
+        
         success = result.returncode == 0
         output = result.stdout + result.stderr
-        passed = 0
-        failed = 0
-
-        for line in reversed(output.splitlines()):
-            if " passed" in line or " failed" in line or " error" in line:
-                for token in [part.strip() for part in line.split(",")]:
-                    parts = token.split()
-                    if len(parts) >= 2 and parts[0].isdigit():
-                        count = int(parts[0])
-                        label = parts[1]
-                        if label.startswith("passed"):
-                            passed = count
-                        elif label.startswith("failed") or label.startswith("error"):
-                            failed += count
-                if passed or failed:
-                    break
-
+        
         return {
             "success": success,
             "returncode": result.returncode,
             "output": output,
             "stdout": result.stdout,
-            "stderr": result.stderr,
-            "passed": passed,
-            "failed": failed,
-            "command": " ".join(command),
+            "stderr": result.stderr
         }
         
     except subprocess.TimeoutExpired:
@@ -68,9 +47,7 @@ def run_pytest(test_args: str = "-q") -> Dict[str, Any]:
             "error": "Test execution timeout",
             "output": "Tests took too long to run (>60s)",
             "stdout": "",
-            "stderr": "",
-            "passed": 0,
-            "failed": 0,
+            "stderr": ""
         }
     except Exception as e:
         logger.error(f"❌ Test execution failed: {e}")
@@ -79,9 +56,7 @@ def run_pytest(test_args: str = "-q") -> Dict[str, Any]:
             "error": str(e),
             "output": f"Failed to run tests: {e}",
             "stdout": "",
-            "stderr": "",
-            "passed": 0,
-            "failed": 0,
+            "stderr": ""
         }
 
 

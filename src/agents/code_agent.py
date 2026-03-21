@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 class CodeChatAgent(Agent):
     """AI agent for code chat and analysis"""
     
-    def __init__(self, llm_provider: LLMProvider):
+    def __init__(self, llm_provider=None):
         super().__init__(
             name="CodeChat",
             description="Interactive AI code assistant"

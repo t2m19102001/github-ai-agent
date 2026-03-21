@@ -5,14 +5,24 @@ Multi-modal agent for processing images, diagrams, and screenshots
 """
 
 import os
-import cv2
 import numpy as np
 from PIL import Image
-import pytesseract
 import io
 import base64
 from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass
+
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+
+try:
+    import pytesseract
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    TESSERACT_AVAILABLE = False
 
 from src.agents.base_agent import BaseAgent
 from src.rag.vector_store import VectorStore

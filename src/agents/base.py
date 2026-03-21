@@ -14,9 +14,14 @@ logger = logging.getLogger(__name__)
 class Tool(ABC):
     """Base class for tools that agents can use"""
     
-    def __init__(self, name: str, description: str):
-        self.name = name
-        self.description = description
+    name: str = "Tool"
+    description: str = "Base tool"
+    
+    def __init__(self, name: str = None, description: str = None):
+        if name:
+            self.name = name
+        if description:
+            self.description = description
     
     @abstractmethod
     def execute(self, *args, **kwargs) -> Any:
