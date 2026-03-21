@@ -55,6 +55,10 @@ class CodeChatAgent(Agent):
         
         logger.info("✅ CodeChatAgent initialized with TokenManager")
     
+    async def process_message(self, message: str, context) -> str:
+        """Process incoming message (async interface for BaseAgent)"""
+        return self.think(message)
+    
     def think(self, prompt: str) -> str:
         """Analyze prompt and generate response"""
         # Build messages

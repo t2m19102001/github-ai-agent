@@ -41,6 +41,8 @@ DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_FULL_NAME = os.getenv("REPO_FULL_NAME")
+GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
+GITHUB_APP_KEY = os.getenv("GITHUB_APP_KEY")
 
 # ============================================================================
 # LLM Configuration

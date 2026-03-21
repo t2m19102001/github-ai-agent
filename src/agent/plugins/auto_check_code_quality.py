@@ -36,7 +36,7 @@ class AutoCheckCodeQualityPlugin(BasePlugin):
     
     def validate(self, context: Dict[str, Any]) -> bool:
         """Check if this plugin should run"""
-        return context.get("pull_request") or context.get("code_diff")
+        return bool(context.get("pull_request") or context.get("code_diff"))
     
     async def execute(self, context: Dict[str, Any]) -> PluginResult:
         """Execute code quality checks"""

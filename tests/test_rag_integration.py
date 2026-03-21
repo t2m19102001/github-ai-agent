@@ -11,6 +11,7 @@ from pathlib import Path
 from src.rag.llamaindex_adapter import LlamaIndexRAG, initialize_rag, get_rag_instance, query_rag
 
 
+@pytest.mark.integration
 class TestLlamaIndexRAG:
     """Test RAG functionality"""
     
@@ -129,6 +130,7 @@ class TestLlamaIndexRAG:
         assert self.rag.relevant_results == 0
 
 
+@pytest.mark.integration
 class TestRAGGlobalFunctions:
     """Test global RAG functions"""
     
@@ -175,6 +177,7 @@ class TestRAGGlobalFunctions:
         rag.query.assert_called_once_with("test query", 8)
 
 
+@pytest.mark.integration
 class TestRAGIntegrationWithAgents:
     """Test RAG integration with multi-agent workflow"""
     
@@ -278,6 +281,7 @@ class TestRAGIntegrationWithAgents:
             assert "Relevant Code Context:" not in result
 
 
+@pytest.mark.integration
 class TestRAGPerformanceTargets:
     """Test RAG performance targets"""
     

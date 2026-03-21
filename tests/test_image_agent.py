@@ -7,6 +7,7 @@ Tests for multi-modal image processing capabilities
 import os
 import sys
 import unittest
+import pytest
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -21,6 +22,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+@pytest.mark.integration
 class TestImageAgent(unittest.TestCase):
     """Test cases for ImageAgent"""
     

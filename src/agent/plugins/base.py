@@ -46,7 +46,7 @@ class BasePlugin(ABC):
     name: str = "BasePlugin"
     version: str = "1.0.0"
     description: str = "Base plugin"
-    triggers: List[str] = field(default_factory=list)
+    triggers: List[str] = None
     
     def __init__(self, config: Optional[PluginConfig] = None):
         self.config = config or PluginConfig(name=self.name)
@@ -92,7 +92,7 @@ class BasePlugin(ABC):
         """Check if event matches plugin triggers"""
         if not self.triggers:
             return True
-        return event_type in self.triggers
+        return event_type in (self.triggers or [])
 
 
 class PluginRegistry:
