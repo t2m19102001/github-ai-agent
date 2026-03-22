@@ -75,10 +75,24 @@ class ImageAgent:
             # Load and preprocess image
             image = self._load_image(input_data)
             if image is None:
-                return self._create_error_result("Failed to load image")
+                return self._create_error_result("Failed to load image. Ensure the file is a valid image format.")
             
             # Extract text using OCR
             extracted_text = self._extract_text_ocr(image)
+            
+            # Check if OCR failed due to missing Tesseract
+            if not extracted_text and not TESSERACT_AVAILABLE:
+                return {
+                    "agent": self.name,
+                    "success": True,
+                    "extracted_text": "",
+                    "diagram_info": "OCR not available - Tesseract not installed",
+                    "structural_elements": [],
+                    "error_messages": [],
+                    "confidence_score": 0.0,
+                    "related_docs": [],
+                    "warning": "OCR requires Tesseract. Install with: brew install tesseract"
+                }
             
             # Analyze image structure
             structural_analysis = self._analyze_image_structure(image)
@@ -114,8 +128,20 @@ class ImageAgent:
             return result
             
         except Exception as e:
-            logger.error(f"Error processing image: {e}")
-            return self._create_error_result(str(e))
+            error_msg = str(e)
+            logger.error(f"Error processing image: {error_msg}")
+            
+            # Provide helpful messages for common errors
+            if "tesseract" in error_msg.lower() or "not installed" in error_msg.lower():
+                return self._create_error_result(
+                    "Tesseract OCR not installed. Install with: brew install tesseract"
+                )
+            elif "does not support image" in error_msg.lower():
+                return self._create_error_result(
+                    "LLM does not support image inputs. Use OCR-based analysis instead."
+                )
+            
+            return self._create_error_result(error_msg)
     
     def _load_image(self, input_data: Union[str, bytes, np.ndarray]) -> Optional[np.ndarray]:
         """Load image from various input formats"""
