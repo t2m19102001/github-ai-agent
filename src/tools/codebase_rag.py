@@ -105,7 +105,6 @@ def retrieve(query, k=15):
     return "\n\n".join([f"File {r.metadata.get('source', '')}:\n{r.page_content}" for r in results])
 
 def get_context(question, k=15):
-    global vectordb
     if vectordb is None:
         index_repo()
     try:
