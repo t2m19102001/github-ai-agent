@@ -25,9 +25,10 @@ except ImportError:
 
 from src.agents.agent_manager import AgentManager
 from src.agents.github_issue_agent import GitHubIssueAgent
-from src.agents.code_agent import CodeAgent
+from src.agents.code_agent import CodeChatAgent
 from src.agents.doc_agent import DocumentationAgent
 from src.agents.image_agent import ImageAgent
+from src.llm.provider import get_llm_provider
 from src.memory.log_manager import log_activity
 from src.utils.logger import get_logger
 
@@ -60,12 +61,17 @@ class SlackBotManager:
                 token=os.getenv("GITHUB_TOKEN", "mock_token"),
                 config={"test_mode": True}
             ),
-            "code": CodeAgent(config={"test_mode": True}),
+            "code": CodeChatAgent(llm_provider=get_llm_provider("mock")),
             "doc": DocumentationAgent(config={"test_mode": True}),
             "image": ImageAgent(config={"test_mode": True})
         }
         
-        self.agent_manager = AgentManager(list(self.agents.values()))
+        self.agent_manager = AgentManager({
+            "github_issue": self.agents["github"],
+            "code": self.agents["code"],
+            "documentation": self.agents["doc"],
+            "image": self.agents["image"],
+        })
         
         # Register handlers
         self._register_handlers()
@@ -186,7 +192,7 @@ class SlackBotManager:
                 priority="medium"
             )
             
-            result = self.agent_manager.process_task(task_id)
+            result = await self.agent_manager.process_task(task_id)
             
             # Format response
             return self._format_slack_response(result, task_type)

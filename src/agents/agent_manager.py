@@ -89,6 +89,7 @@ class AgentManager:
         self.task_queue = []
         self.active_tasks = {}
         self.completed_tasks = {}
+        self.all_tasks = {}
         
         # Agent capabilities registry
         self.agent_capabilities = {}
@@ -139,6 +140,7 @@ class AgentManager:
         )
         
         self.task_queue.append(task)
+        self.all_tasks[task_id] = task
         
         # Store in memory
         if self.memory_manager:
@@ -242,8 +244,8 @@ class AgentManager:
                 return task
         
         # Check completed tasks
-        if task_id in self.completed_tasks:
-            return self.completed_tasks[task_id].combined_result.get('task') if self.completed_tasks[task_id].combined_result else None
+        if task_id in self.all_tasks:
+            return self.all_tasks[task_id]
         
         return None
     
@@ -255,15 +257,15 @@ class AgentManager:
         task_agent_mapping = {
             "github_issue": ["github_issue"],
             "github_issue_analysis": ["github_issue", "documentation"],
-            "code_analysis": ["code_agent"],
+            "code_analysis": ["code"],
             "documentation_search": ["documentation"],
-            "git_operations": ["git_agent"],
-            "general_query": ["general_agent"],
-            "collaborative_task": ["github_issue", "code_agent", "documentation"]
+            "git_operations": ["github_issue"],
+            "general_query": ["documentation", "code"],
+            "collaborative_task": ["github_issue", "code", "documentation"]
         }
         
         # Get agents for task type
-        agents_for_task = task_agent_mapping.get(task.type, ["general_agent"])
+        agents_for_task = task_agent_mapping.get(task.type, ["documentation"])
         
         # Filter by available agents and capabilities
         for agent_name in agents_for_task:
@@ -299,9 +301,9 @@ class AgentManager:
         """Prioritize agents based on task priority"""
         # Priority weights
         priority_weights = {
-            "high": {"github_issue_agent": 1.0, "code_agent": 0.9, "doc_agent": 0.7},
-            "medium": {"github_issue_agent": 0.8, "code_agent": 0.8, "doc_agent": 0.8},
-            "low": {"github_issue_agent": 0.6, "code_agent": 0.7, "doc_agent": 0.9}
+            "high": {"github_issue": 1.0, "code": 0.9, "documentation": 0.7, "image": 0.6},
+            "medium": {"github_issue": 0.8, "code": 0.8, "documentation": 0.8, "image": 0.7},
+            "low": {"github_issue": 0.6, "code": 0.7, "documentation": 0.9, "image": 0.8}
         }
         
         # Get weights for task priority
