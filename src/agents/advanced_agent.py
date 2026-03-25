@@ -118,12 +118,10 @@ class APICallTool(Tool):
         return {"status": "success", "method": method, "url": url, "payload": payload or {}}
 
 
-
-
 class ToolList(list):
     """List wrapper allowing membership checks by tool name."""
 
-    def __contains__(self, item):
+    def __contains__(self, item: object) -> bool:
         if isinstance(item, str):
             return any(isinstance(entry, dict) and entry.get("name") == item for entry in self)
         return super().__contains__(item)
