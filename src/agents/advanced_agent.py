@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""Compatibility advanced agent module used by legacy tests."""
+
+from __future__ import annotations
+
+import subprocess
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+
+def call_llm(prompt: str, provider: str = "mock") -> str:
+    return f"[{provider}] {prompt[:120]}"
 """
 Advanced AI Agent Framework
 Enhanced agent with planning, memory, and tool execution capabilities
@@ -20,9 +31,9 @@ except ImportError:
 
 logger = get_logger(__name__)
 
-
 @dataclass
 class AgentProfile:
+
     """Agent profile with personality and expertise"""
     name: str
     role: str
@@ -327,6 +338,8 @@ class AdvancedAIAgent:
             "name": self.profile.name,
             "role": self.profile.role,
             "expertise": self.profile.expertise,
+            "agent_name": self.profile.name,
+            "agent_role": self.profile.role,
             "tools": self.toolkit.list_tools(),
             "memory_stats": self.memory.get_memory_stats()
         }
