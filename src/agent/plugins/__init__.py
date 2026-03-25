@@ -1,12 +1,16 @@
-"""Plugin exports."""
+"""
+Agent plugins package
+Provides extensibility through plugin system
+"""
 
-from .base import PluginBase, PluginManager
-from .auto_check_code_quality import AutoCheckCodeQualityPlugin
-from .auto_comment_on_issue import AutoCommentOnIssuePlugin
+from src.agent.plugins.base import BasePlugin, PluginConfig, PluginResult, PluginRegistry
+from src.agent.plugins.manager import PluginManager, get_plugin_manager
 
 __all__ = [
-    "PluginBase",
+    "BasePlugin",
+    "PluginConfig",
+    "PluginResult", 
+    "PluginRegistry",
     "PluginManager",
-    "AutoCheckCodeQualityPlugin",
-    "AutoCommentOnIssuePlugin",
+    "get_plugin_manager"
 ]

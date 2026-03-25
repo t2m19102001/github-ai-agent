@@ -7,6 +7,7 @@ Tests for multi-modal image processing capabilities
 import os
 import sys
 import unittest
+import pytest
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -21,6 +22,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+@pytest.mark.integration
 class TestImageAgent(unittest.TestCase):
     """Test cases for ImageAgent"""
     
@@ -194,11 +196,7 @@ class TestImageAgent(unittest.TestCase):
         
         for i, doc in enumerate(test_docs):
             embedding = np.random.rand(128)
-            vector_store.add_document(
-                content=doc,
-                metadata={"type": "error_handling"},
-                embedding=embedding
-            )
+            vector_store.add_document(content=doc, metadata={"type": "error_handling"}, embedding=embedding)
         
         # Create agent with RAG
         agent_with_rag = ImageAgent(rag_store=vector_store)

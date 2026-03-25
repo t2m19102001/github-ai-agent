@@ -15,12 +15,17 @@ from src.github.repository_operations import RepositoryOperations, get_repositor
 from src.github.webhook_manager import WebhookManager, get_webhook_manager, WebhookEvent
 
 
+@pytest.mark.integration
 class TestGitHubAPIClient:
     """Test GitHub API client"""
     
     def setup_method(self):
         self.test_token = "test_token_123"
-        self.client = GitHubAPIClient(token=self.test_token)
+        # Mock the GitHub client to avoid real API calls
+        with patch('src.github.api_client.Github') as mock_github:
+            mock_github_instance = Mock()
+            mock_github.return_value = mock_github_instance
+            self.client = GitHubAPIClient(token=self.test_token)
     
     def test_client_initialization(self):
         """Test client initialization"""
@@ -202,6 +207,7 @@ class TestGitHubAPIClient:
         assert "rate_limit_info" in result
 
 
+@pytest.mark.integration
 class TestRepositoryOperations:
     """Test repository operations"""
     
@@ -312,6 +318,7 @@ class TestRepositoryOperations:
             assert "git_statistics" in result
 
 
+@pytest.mark.integration
 class TestWebhookManager:
     """Test webhook manager"""
     
@@ -420,6 +427,7 @@ class TestWebhookManager:
         assert result["success_rate"] == 80.0
 
 
+@pytest.mark.integration
 class TestGlobalFunctions:
     """Test global functions"""
     

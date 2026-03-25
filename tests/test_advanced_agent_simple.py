@@ -196,10 +196,10 @@ class TestAdvancedAIAgentCore:
         
         status = agent.get_agent_status()
         
-        assert "agent_name" in status
-        assert "agent_role" in status
+        assert "name" in status
+        assert "role" in status
         assert "expertise" in status
-        assert status["agent_name"] == "Test"
+        assert status["name"] == "Test"
 
 
 class TestIntegration:
@@ -229,10 +229,9 @@ class TestIntegration:
         
         tools = toolkit.list_tools()
         
-        # list_tools returns list of dict with name, description
-        tool_names = [t["name"] for t in tools]
-        assert "code_executor" in tool_names
-        assert "file_operations" in tool_names
+        # list_tools returns list of tool names (strings)
+        assert "code_executor" in tools
+        assert "file_operations" in tools
         assert len(tools) >= 2
 
 

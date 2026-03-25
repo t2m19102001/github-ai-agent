@@ -413,6 +413,54 @@ async def health_check():
         }
     }
 
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with component status"""
+    try:
+        from src.monitoring.health import health_check as detailed_health
+        
+        check_result = detailed_health()
+        
+        return check_result
+    except Exception as e:
+        logger.error(f"Detailed health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "components": {}
+        }
+
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness probe for Kubernetes"""
+    try:
+        from src.monitoring.health import readiness_check as check
+        
+        result = check()
+        
+        if result.get("ready", False):
+            return result
+        else:
+            return JSONResponse(
+                status_code=503,
+                content=result
+            )
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"ready": False, "error": str(e)}
+        )
+
+
+@app.get("/live")
+async def liveness_check():
+    """Liveness probe for Kubernetes"""
+    return {
+        "status": "alive",
+        "timestamp": __import__('time').time()
+    }
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
@@ -433,7 +481,6 @@ async def startup_event():
         ("Multi-agent coordination patterns", {"type": "architecture", "topic": "agents"}),
         ("RAG implementation with vector databases", {"type": "tutorial", "topic": "rag"})
     ]
-
     if vector_store.get_stats().get("total_documents", 0) == 0:
         for content, metadata in sample_docs:
             embedding = text_to_embedding(content, 128)
@@ -442,7 +489,6 @@ async def startup_event():
         logger.info("Seeded vector store with sample documents")
     else:
         logger.info("Vector store already contains documents; skipping sample seed")
-
     logger.info("Application startup complete")
 
 # Shutdown event
