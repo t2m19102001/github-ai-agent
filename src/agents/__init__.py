@@ -6,56 +6,15 @@ Architecture:
 - base.py: Tool, Executor, Agent (backward compat)
 - base_agent.py: BaseAgent, AgentContext, AgentMessage (async support)
 """
+from src.agents.base import Agent, Tool, Executor
 
-from src.agents.base import Tool, Executor, Agent
 
-try:
-    from src.agents.base_agent import (
-        BaseAgent,
-        AgentContext,
-        AgentMessage,
-        SimpleAgent,
-        create_agent
-    )
-except ImportError:
-    BaseAgent = Agent
-    AgentContext = None
-    AgentMessage = None
-    SimpleAgent = None
-    create_agent = None
+def __getattr__(name):
+    """Lazy exports to avoid circular imports during package initialization."""
+    if name == "CodeChatAgent":
+        from src.agents.code_agent import CodeChatAgent
 
-from src.agents.code_agent import CodeChatAgent
-from src.agents.github_issue_agent import GitHubIssueAgent
-from src.agents.doc_agent import DocumentationAgent
-from src.agents.image_agent import ImageAgent
-from src.agents.test_agent import TestGenerationAgent
-from src.agents.advanced_agent import AdvancedAIAgent
+        return CodeChatAgent
+    raise AttributeError(f"module 'src.agents' has no attribute {name!r}")
 
-try:
-    from src.agents.pr_agent import GitHubPRAgent
-except ImportError:
-    GitHubPRAgent = None
-
-try:
-    from src.agents.orchestrator import MultiAgentOrchestrator
-except ImportError:
-    MultiAgentOrchestrator = None
-
-__all__ = [
-    "Agent",
-    "BaseAgent",
-    "Tool",
-    "Executor",
-    "AgentContext",
-    "AgentMessage",
-    "SimpleAgent",
-    "CodeChatAgent",
-    "GitHubIssueAgent",
-    "DocumentationAgent",
-    "ImageAgent",
-    "TestGenerationAgent",
-    "AdvancedAIAgent",
-    "GitHubPRAgent",
-    "MultiAgentOrchestrator",
-    "create_agent",
-]
+__all__ = ["CodeChatAgent", "Agent", "Tool", "Executor"]

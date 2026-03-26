@@ -1,270 +1,186 @@
 #!/usr/bin/env python3
-"""
-AI Provider Module
-Wrapper for LLM providers with adapter pattern
-"""
+"""Compatibility AI provider layer for legacy routes and tests."""
 
-from typing import Dict, Any, Optional, List
+from __future__ import annotations
+
+import importlib.util
 import os
+from abc import ABC, abstractmethod
+from typing import Iterable, List, Sequence
 
-try:
-    from utils.logger import get_logger
-except ImportError:
-    from src.utils.logger import get_logger
+if importlib.util.find_spec("requests"):
+    import requests
+else:
+    requests = None
 
-try:
-    from src.llm.groq import GroqProvider
-except ImportError:
-    GroqProvider = None
-
-try:
-    from src.llm.provider import LLMProvider
-except ImportError:
-    LLMProvider = object
+from src.core.config import GROQ_API_KEY, HUGGINGFACE_MODEL, HUGGINGFACE_TOKEN, LLM_PROVIDER
+from src.llm.provider import get_llm_provider
+from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class ProviderBase:
-    """Base class for AI providers"""
-    
-    name: str = "ProviderBase"
-    
+class ProviderBase(ABC):
+    """Minimal provider protocol used by the legacy web app."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Human-readable provider name."""
+
+    @abstractmethod
     def get_response(self, prompt: str) -> str:
-        """Get response from provider"""
-        raise NotImplementedError
-    
+        """Return a text response for a prompt."""
+
+    @abstractmethod
     def is_available(self) -> bool:
-        """Check if provider is available"""
-        return False
-
-
-def get_default_provider() -> LLMProvider:
-    """Get the default LLM provider based on environment config"""
-    provider_name = os.getenv("LLM_PROVIDER", "groq").lower()
-    
-    if provider_name == "groq" and GroqProvider:
-        return GroqProvider()
-    
-    if provider_name == "ollama":
-        try:
-            from src.llm.ollama import OllamaProvider
-            return OllamaProvider()
-        except ImportError:
-            pass
-    
-    return MockProvider()
+        """Whether the provider can currently serve requests."""
 
 
 class GroqAIProvider(ProviderBase):
-    """Groq AI provider wrapper"""
-    
-    name = "groq"
-    
-    def __init__(self):
-        self.api_key = os.getenv("GROQ_API_KEY", "")
-    
+    @property
+    def name(self) -> str:
+        return "Groq"
+
     def is_available(self) -> bool:
-        """Check if Groq is available"""
-        return bool(self.api_key)
-    
+        return bool(os.getenv("GROQ_API_KEY") or GROQ_API_KEY)
+
     def get_response(self, prompt: str) -> str:
-        """Get response from Groq"""
-        if not self.is_available():
-            return "Groq not configured"
-        
-        try:
-            import requests
-            response = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "mixtral-8x7b-32768",
-                    "messages": [{"role": "user", "content": prompt}]
-                },
-                timeout=30
-            )
-            
-            if response.ok:
-                data = response.json()
-                return data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            
-            return f"Error: {response.status_code}"
-            
-        except Exception as e:
-            return f"Error: {str(e)}"
+        from src.llm.groq import GroqProvider
+
+        provider = GroqProvider()
+        response = provider.call([{"role": "user", "content": prompt}])
+        return response or ""
 
 
 class OllamaAIProvider(ProviderBase):
-    """Ollama AI provider wrapper"""
-    
-    name = "ollama"
-    
-    def __init__(self, base_url: str = "http://localhost:11434"):
-        self.base_url = base_url
-    
+    def __init__(self, base_url: str | None = None):
+        self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+    @property
+    def name(self) -> str:
+        return "Ollama"
+
     def is_available(self) -> bool:
-        """Check if Ollama is available"""
         try:
-            import requests
+            if requests is None:
+                return False
             response = requests.get(f"{self.base_url}/api/tags", timeout=2)
-            return response.ok
+            return response.status_code == 200
         except Exception:
             return False
-    
+
     def get_response(self, prompt: str) -> str:
-        """Get response from Ollama"""
-        try:
-            import requests
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json={"prompt": prompt, "model": "llama2"},
-                timeout=60
-            )
-            
-            if response.ok:
-                data = response.json()
-                return data.get("response", "")
-            
-            return f"Error: {response.status_code}"
-            
-        except Exception as e:
-            return f"Error: {str(e)}"
+        fallback = get_llm_provider("ollama")
+        if hasattr(fallback, "invoke"):
+            result = fallback.invoke(prompt)
+            return result.content if hasattr(result, "content") else str(result)
+        return f"Ollama provider unavailable for prompt: {prompt[:100]}"
 
 
 class HuggingFaceAIProvider(ProviderBase):
-    """HuggingFace AI provider wrapper"""
-    
-    name = "huggingface"
-    
-    def __init__(self):
-        self.token = os.getenv("HUGGINGFACE_TOKEN", "")
-        self.model = os.getenv("HUGGINGFACE_MODEL", "gpt2")
-    
+    def __init__(self, model: str | None = None):
+        self.token = os.getenv("HUGGINGFACE_TOKEN") or HUGGINGFACE_TOKEN
+        self.model = model or os.getenv("HUGGINGFACE_MODEL") or HUGGINGFACE_MODEL
+
+    @property
+    def name(self) -> str:
+        return "HuggingFace"
+
     def is_available(self) -> bool:
-        """Check if HuggingFace is available"""
-        return bool(self.token)
-    
+        return bool(self.token and self.model)
+
     def get_response(self, prompt: str) -> str:
-        """Get response from HuggingFace"""
         if not self.is_available():
-            return "HuggingFace not configured"
-        
-        try:
-            import requests
-            response = requests.post(
-                "https://api-inference.huggingface.co/models/" + self.model,
-                headers={"Authorization": f"Bearer {self.token}"},
-                json={"inputs": prompt},
-                timeout=60
-            )
-            
-            if response.ok:
-                data = response.json()
-                if isinstance(data, list) and len(data) > 0:
-                    return data[0].get("generated_text", "")
-                elif isinstance(data, dict):
-                    return data.get("generated_text", "")
-            
-            return f"Error: {response.status_code}"
-            
-        except Exception as e:
-            return f"Error: {str(e)}"
+            raise RuntimeError("HuggingFace provider is not configured")
 
+        if requests is None:
+            raise RuntimeError("requests is required for HuggingFace provider")
 
-class ProviderAdapter:
-    """Adapter wrapper for LLM providers"""
-    
-    def __init__(self, provider: ProviderBase):
-        self.provider = provider
-        self.name = provider.name if hasattr(provider, 'name') else "unknown"
-    
-    def call(self, messages: List[Dict[str, str]]) -> str:
-        """Call the provider with messages"""
-        prompt = "\n".join([f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages])
-        return self.provider.get_response(prompt)
-    
-    async def generate(self, prompt: str, **kwargs) -> str:
-        """Generate response using the underlying provider"""
-        if hasattr(self.provider, 'generate_async'):
-            return await self.provider.generate_async(prompt, **kwargs)
-        elif hasattr(self.provider, 'get_response'):
-            return self.provider.get_response(prompt)
-        else:
-            return f"Mock response for: {prompt[:100]}"
-    
-    def get_status(self) -> Dict[str, Any]:
-        """Get provider status"""
-        if hasattr(self.provider, 'get_status'):
-            return self.provider.get_status()
-        return {
-            "name": self.name,
-            "status": "active"
-        }
+        response = requests.post(
+            f"https://api-inference.huggingface.co/models/{self.model}",
+            headers={"Authorization": f"Bearer {self.token}"},
+            json={"inputs": prompt},
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if isinstance(payload, list) and payload:
+            return payload[0].get("generated_text", "")
+        if isinstance(payload, dict):
+            return payload.get("generated_text", "") or payload.get("summary_text", "") or str(payload)
+        return str(payload)
 
 
 class CompositeAIProvider(ProviderBase):
-    """Provider that combines multiple providers"""
-    
-    name = "composite"
-    
-    def __init__(self, providers: List[ProviderBase] = None):
-        self.providers = providers or []
-    
-    def add_provider(self, provider: ProviderBase) -> None:
-        """Add a provider to the composite"""
-        self.providers.append(provider)
-    
+    def __init__(self, providers: Sequence[ProviderBase]):
+        self.providers = list(providers)
+
+    @property
+    def name(self) -> str:
+        return "Composite"
+
     def is_available(self) -> bool:
-        """Check if any provider is available"""
-        return any(p.is_available() for p in self.providers)
-    
+        return any(provider.is_available() for provider in self.providers)
+
     def get_response(self, prompt: str) -> str:
-        """Get response from first available provider"""
         for provider in self.providers:
             if provider.is_available():
                 return provider.get_response(prompt)
-        return "No provider available"
+        raise RuntimeError("No AI providers are available")
 
 
-class MockProvider:
-    """Mock provider for testing/development"""
-    
-    name = "mock"
-    
-    def __init__(self):
-        logger.info("Initialized Mock LLM provider")
-    
-    async def generate_response(self, prompt: str, **kwargs) -> str:
-        return f"Mock response for: {prompt[:100]}..."
-    
-    async def generate_async(self, prompt: str, **kwargs) -> str:
-        return await self.generate_response(prompt, **kwargs)
-    
-    def get_response(self, prompt: str) -> str:
-        return f"Mock response for: {prompt[:100]}..."
-    
-    def is_available(self) -> bool:
-        return True
-    
-    def get_status(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "status": "active",
-            "type": "mock"
-        }
+class ProviderAdapter:
+    """Adapts ProviderBase to the `.call(messages)` interface used by CodeChatAgent."""
+
+    def __init__(self, provider: ProviderBase):
+        self.provider = provider
+
+    def _messages_to_prompt(self, messages: Iterable[dict] | str) -> str:
+        if isinstance(messages, str):
+            return messages
+
+        parts: List[str] = []
+        for message in messages:
+            role = message.get("role", "user").upper()
+            content = message.get("content", "")
+            parts.append(f"{role}: {content}")
+        return "\n\n".join(parts)
+
+    def call(self, messages: Iterable[dict] | str) -> str:
+        prompt = self._messages_to_prompt(messages)
+        return self.provider.get_response(prompt)
 
 
-__all__ = [
-    "ProviderBase",
-    "GroqAIProvider",
-    "OllamaAIProvider", 
-    "HuggingFaceAIProvider",
-    "ProviderAdapter",
-    "CompositeAIProvider",
-    "get_default_provider",
-    "MockProvider"
-]
+def get_default_provider() -> ProviderBase:
+    """Select the first configured provider, falling back to a mock provider."""
+    provider_name = (os.getenv("LLM_PROVIDER") or LLM_PROVIDER or "").lower()
+
+    candidates: list[ProviderBase] = []
+    if provider_name == "groq":
+        candidates.append(GroqAIProvider())
+    elif provider_name == "huggingface":
+        candidates.append(HuggingFaceAIProvider())
+    elif provider_name == "ollama":
+        candidates.append(OllamaAIProvider())
+
+    candidates.extend([GroqAIProvider(), OllamaAIProvider(), HuggingFaceAIProvider()])
+    composite = CompositeAIProvider(candidates)
+    if composite.is_available():
+        return composite
+
+    logger.info("No external AI provider configured; falling back to mock LLM provider")
+
+    class MockProvider(ProviderBase):
+        @property
+        def name(self) -> str:
+            return "Mock"
+
+        def get_response(self, prompt: str) -> str:
+            provider = get_llm_provider("mock")
+            return f"[{self.name}] {prompt[:200]}\n\n{provider.get_status()['status']}"
+
+        def is_available(self) -> bool:
+            return True
+
+    return MockProvider()

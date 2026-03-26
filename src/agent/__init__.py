@@ -1,4 +1,4 @@
-"""Compatibility package for provider abstractions used by legacy FastAPI/chat modules."""
+"""Compatibility package for legacy `src.agent.*` imports."""
 
 from .ai_provider import (
     CompositeAIProvider,
@@ -9,6 +9,12 @@ from .ai_provider import (
     ProviderBase,
     get_default_provider,
 )
+from .plugins import (
+    AutoCheckCodeQualityPlugin,
+    AutoCommentOnIssuePlugin,
+    PluginBase,
+    PluginManager,
+)
 
 __all__ = [
     "CompositeAIProvider",
@@ -18,12 +24,8 @@ __all__ = [
     "ProviderAdapter",
     "ProviderBase",
     "get_default_provider",
+    "PluginBase",
+    "PluginManager",
+    "AutoCheckCodeQualityPlugin",
+    "AutoCommentOnIssuePlugin",
 ]
-"""
-src.agent package
-Legacy API endpoints for backward compatibility
-"""
-
-from src.agent.api import app
-
-__all__ = ["app"]
