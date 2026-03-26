@@ -11,6 +11,7 @@ def _sig(secret: str, body: bytes) -> str:
     return "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
 
 
+@pytest.mark.integration
 @pytest.mark.anyio
 async def test_webhook_issue_comment(monkeypatch):
     monkeypatch.setenv("API_TOKEN", "t")
@@ -38,6 +39,7 @@ async def test_webhook_issue_comment(monkeypatch):
     assert any(p.get("action") == "comment" for p in data.get("plugins") or [])
 
 
+@pytest.mark.integration
 @pytest.mark.anyio
 async def test_webhook_pull_request(monkeypatch):
     monkeypatch.setenv("API_TOKEN", "t")

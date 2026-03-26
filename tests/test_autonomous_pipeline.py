@@ -55,6 +55,7 @@ class TestCodeAnalyzer:
             assert result["test_files"] == 0
             assert result["total_lines"] == 0
     
+    @pytest.mark.integration
     def test_analyze_nonexistent_directory(self):
         """Test analysis of nonexistent directory"""
         result = self.analyzer.analyze_codebase("/nonexistent/path")
@@ -196,6 +197,7 @@ class TestPRCreator:
     def setup_method(self):
         self.pr_creator = PRCreator()
     
+    @pytest.mark.integration
     def test_create_draft_pr_success(self):
         """Test successful draft PR creation"""
         patch_data = {
@@ -223,6 +225,7 @@ class TestPRCreator:
         assert "draft" in pr_data
         assert "Pass rate: 90%" in pr_data["body"]
     
+    @pytest.mark.integration
     def test_create_pr_with_test_failure(self):
         """Test PR creation when tests fail"""
         patch_data = {

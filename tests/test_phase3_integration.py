@@ -10,23 +10,18 @@ from unittest.mock import Mock, AsyncMock
 from datetime import datetime, timedelta
 import tempfile
 import os
+import sys
+from pathlib import Path
 
-try:
-    from ..agents.agent_manager import AgentManager, Task, CollaborativeResult
-    from ..agents.github_issue_agent import GitHubIssueAgent
-    from ..agents.doc_agent import DocumentationAgent
-    from ..rag.vector_store import VectorStore
-    from ..memory.memory_manager import MemoryManager
-    from ..agents.base_agent import AgentContext
-    from ..utils.logger import get_logger
-except ImportError:
-    from src.agents.agent_manager import AgentManager, Task, CollaborativeResult
-    from src.agents.github_issue_agent import GitHubIssueAgent
-    from src.agents.doc_agent import DocumentationAgent
-    from src.rag.vector_store import VectorStore
-    from src.memory.memory_manager import MemoryManager
-    from src.agents.base_agent import AgentContext
-    from src.utils.logger import get_logger
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.agents.agent_manager import AgentManager, Task, CollaborativeResult
+from src.agents.github_issue_agent import GitHubIssueAgent
+from src.agents.doc_agent import DocumentationAgent
+from src.rag.vector_store import VectorStore
+from src.memory.memory_manager import MemoryManager
+from src.agents.base_agent import AgentContext, SimpleAgent
+from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

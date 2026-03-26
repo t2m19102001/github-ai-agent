@@ -144,7 +144,7 @@ class LlamaIndexRAG:
         # Persist index
         self.index.storage_context.persist(persist_dir=str(self.index_path))
         
-        build_time = time.time() - time.time()
+        build_time = time.time() - start_time
         self.index_times.append(build_time)
         
         return {
@@ -176,7 +176,7 @@ class LlamaIndexRAG:
         # Add to simple DB
         self.simple_db.add_documents(documents)
         
-        build_time = time.time() - time.time()
+        build_time = time.time() - start_time
         self.index_times.append(build_time)
         
         return {
