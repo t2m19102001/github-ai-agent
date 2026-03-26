@@ -4,15 +4,9 @@ Auto Assign Reviewer Plugin
 Automatically assigns reviewers to pull requests
 """
 
-from typing import Dict, Any, List
-from src.agent.plugins.base import BasePlugin, PluginConfig, PluginResult
+from typing import Any, Dict, List
 
-try:
-    from utils.logger import get_logger
-except ImportError:
-    from src.utils.logger import get_logger
-
-logger = get_logger(__name__)
+from .base import BasePlugin, PluginResult
 
 
 class AutoAssignReviewerPlugin(BasePlugin):
@@ -20,17 +14,11 @@ class AutoAssignReviewerPlugin(BasePlugin):
     
     name = "auto_assign_reviewer"
     version = "1.0.0"
-    description = "Automatically assigns code reviewers based on file changes"
     triggers = ["pull_request.opened", "pull_request.synchronize"]
+    enabled = True
     
-    def __init__(self):
-        config = PluginConfig(
-            name=self.name,
-            enabled=True,
-            priority=30
-        )
-        super().__init__(config)
-        self.codeowners_patterns = {}
+    def should_run(self, event: Dict[str, Any]) -> bool:
+        return "pull_request" in event
     
     def validate(self, context: Dict[str, Any]) -> bool:
         """Check if this plugin should run"""
@@ -39,23 +27,10 @@ class AutoAssignReviewerPlugin(BasePlugin):
     async def execute(self, context: Dict[str, Any]) -> PluginResult:
         """Execute reviewer assignment logic"""
         try:
-            pr = context["pull_request"]
+            pr = context.get("pull_request", {})
             files_changed = context.get("files_changed", [])
             
             suggested_reviewers = self._determine_reviewers(files_changed, pr)
-            
-            github_client = context.get("github_client")
-            if github_client and suggested_reviewers:
-                repo = pr.get("repo", "owner/repo")
-                pr_number = pr.get("number", 0)
-                
-                try:
-                    repo_obj = github_client.get_repo(repo)
-                    pr_obj = repo_obj.get_pull(pr_number)
-                    pr_obj.create_review_request(reviewers=suggested_reviewers)
-                    logger.info(f"Requested reviewers for PR #{pr_number}: {suggested_reviewers}")
-                except Exception as e:
-                    logger.warning(f"Could not request reviewers: {e}")
             
             return PluginResult(
                 success=True,
@@ -64,15 +39,16 @@ class AutoAssignReviewerPlugin(BasePlugin):
                 data={
                     "pr_number": pr.get("number"),
                     "reviewers_suggested": suggested_reviewers
-                }
+                },
+                plugin=self.name
             )
             
         except Exception as e:
-            logger.error(f"Auto-assign reviewer failed: {e}")
             return PluginResult(
                 success=False,
                 action="assign_reviewer",
-                message=f"Reviewer assignment failed: {str(e)}"
+                message=f"Reviewer assignment failed: {str(e)}",
+                plugin=self.name
             )
     
     def _determine_reviewers(self, files: List[str], pr: Dict[str, Any]) -> List[str]:
@@ -105,6 +81,14 @@ class AutoAssignReviewerPlugin(BasePlugin):
             reviewers.append("senior-reviewer")
         
         return reviewers[:3]
+    
+    def get_info(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "version": self.version,
+            "enabled": self.enabled,
+            "triggers": self.triggers
+        }
 
 
 AutoAssignReviewer = AutoAssignReviewerPlugin
