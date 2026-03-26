@@ -4,15 +4,9 @@ Auto Label Issue Plugin
 Automatically labels GitHub issues based on content analysis
 """
 
-from typing import Dict, Any
-from src.agent.plugins.base import BasePlugin, PluginConfig, PluginResult
+from typing import Any, Dict, List
 
-try:
-    from utils.logger import get_logger
-except ImportError:
-    from src.utils.logger import get_logger
-
-logger = get_logger(__name__)
+from .base import BasePlugin, PluginResult
 
 
 class AutoLabelIssuePlugin(BasePlugin):
@@ -20,8 +14,8 @@ class AutoLabelIssuePlugin(BasePlugin):
     
     name = "auto_label_issue"
     version = "1.0.0"
-    description = "Automatically labels issues based on content"
     triggers = ["issue.opened", "issue.edited", "pull_request.opened"]
+    enabled = True
     
     label_rules = {
         "bug": {
@@ -50,17 +44,12 @@ class AutoLabelIssuePlugin(BasePlugin):
         }
     }
     
-    def __init__(self):
-        config = PluginConfig(
-            name=self.name,
-            enabled=True,
-            priority=60
-        )
-        super().__init__(config)
+    def should_run(self, event: Dict[str, Any]) -> bool:
+        return "issue" in event or "pull_request" in event
     
     def validate(self, context: Dict[str, Any]) -> bool:
         """Check if this plugin should run"""
-        return context.get("issue") or context.get("pull_request")
+        return bool(context.get("issue") or context.get("pull_request"))
     
     async def execute(self, context: Dict[str, Any]) -> PluginResult:
         """Execute auto-label logic"""
@@ -72,25 +61,6 @@ class AutoLabelIssuePlugin(BasePlugin):
             
             suggested_labels = self._analyze_content(content)
             
-            github_client = context.get("github_client")
-            if github_client:
-                repo = issue.get("repo", "owner/repo")
-                issue_number = issue.get("number", 0)
-                
-                try:
-                    repo_obj = github_client.get_repo(repo)
-                    issue_obj = repo_obj.get_issue(issue_number)
-                    
-                    for label in suggested_labels:
-                        try:
-                            issue_obj.add_to_labels(label)
-                        except Exception:
-                            pass
-                    
-                    logger.info(f"Added labels to issue #{issue_number}: {suggested_labels}")
-                except Exception as e:
-                    logger.warning(f"Could not add labels: {e}")
-            
             return PluginResult(
                 success=True,
                 action="auto_label",
@@ -98,20 +68,20 @@ class AutoLabelIssuePlugin(BasePlugin):
                 data={
                     "issue_number": issue.get("number"),
                     "labels_suggested": suggested_labels
-                }
+                },
+                plugin=self.name
             )
             
         except Exception as e:
-            logger.error(f"Auto-label failed: {e}")
             return PluginResult(
                 success=False,
                 action="auto_label",
-                message=f"Labeling failed: {str(e)}"
+                message=f"Labeling failed: {str(e)}",
+                plugin=self.name
             )
     
-    def _analyze_content(self, content: str) -> list:
+    def _analyze_content(self, content: str) -> List[str]:
         """Analyze content and suggest labels"""
-        suggestions = []
         scores = {}
         
         for label, rules in self.label_rules.items():
@@ -123,6 +93,15 @@ class AutoLabelIssuePlugin(BasePlugin):
         suggestions = [label for label, _ in sorted_labels[:3]]
         
         return suggestions if suggestions else ["question"]
+    
+    def get_info(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "version": self.version,
+            "enabled": self.enabled,
+            "triggers": self.triggers,
+            "label_rules": list(self.label_rules.keys())
+        }
 
 
 AutoLabelIssue = AutoLabelIssuePlugin
