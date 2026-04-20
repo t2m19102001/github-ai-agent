@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 class CodeChatAgent(Agent):
     """AI agent for code chat and analysis"""
     
-    def __init__(self, llm_provider: LLMProvider):
+    def __init__(self, llm_provider=None):
         super().__init__(
             name="CodeChat",
             description="Interactive AI code assistant"
@@ -54,6 +54,10 @@ class CodeChatAgent(Agent):
         self.register_tool(PytestTool())
         
         logger.info("✅ CodeChatAgent initialized with TokenManager")
+    
+    async def process_message(self, message: str, context) -> str:
+        """Process incoming message (async interface for BaseAgent)"""
+        return self.think(message)
     
     def think(self, prompt: str) -> str:
         """Analyze prompt and generate response"""

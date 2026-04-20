@@ -11,6 +11,7 @@ def _sig(secret: str, body: bytes) -> str:
     return "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
 
 
+@pytest.mark.integration
 @pytest.mark.anyio
 async def test_webhook_pull_request_quality(monkeypatch):
     monkeypatch.setenv("API_TOKEN", "t")

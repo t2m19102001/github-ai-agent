@@ -29,3 +29,4 @@ class AutoCheckCodeQualityPlugin(PluginBase):
 
         comment = "Auto Review Findings:\n- " + "\n- ".join(findings)
         return [PluginResult(plugin=self.name, action="comment", comment=comment).to_dict()]
+

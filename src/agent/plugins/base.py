@@ -6,6 +6,7 @@ This module intentionally supports both legacy and current plugin contracts:
 - `execute(event, context)` (legacy aliases found in older branches)
 """
 
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,7 +22,6 @@ class PluginResult:
     def to_dict(self) -> Dict[str, str]:
         return {"plugin": self.plugin, "action": self.action, "comment": self.comment}
 
-
 class PluginBase:
     name = "plugin_base"
 
@@ -34,7 +34,6 @@ class PluginBase:
     # Legacy compatibility alias.
     def execute(self, event: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         return self.run(event, context or {})
-
 
 class PluginManager:
     def __init__(self, plugins: Iterable[PluginBase] | None = None):

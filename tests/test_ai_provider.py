@@ -13,12 +13,14 @@ from src.agent.ai_provider import (
 )
 
 
+@pytest.mark.integration
 def test_groq_is_available(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "dummy")
     p = GroqAIProvider()
     assert p.is_available() is True
 
 
+@pytest.mark.integration
 def test_ollama_is_available(monkeypatch):
     import src.agent.ai_provider as ai
 
@@ -51,6 +53,7 @@ def test_provider_adapter_calls(monkeypatch):
     assert out == "ok"
 
 
+@pytest.mark.integration
 def test_huggingface_get_response(monkeypatch):
     import src.agent.ai_provider as ai
 

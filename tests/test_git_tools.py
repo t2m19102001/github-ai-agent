@@ -13,6 +13,7 @@ from datetime import datetime
 from src.tools.git_tools import GitTools, GitStatus, GitCommit
 
 
+@pytest.mark.integration
 class TestGitTools:
     """Test cases for GitTools"""
     
@@ -315,6 +316,7 @@ class TestGitTools:
         assert "main" in info["branches"]
 
 
+@pytest.mark.integration
 class TestGitToolsErrorHandling:
     """Test error handling for GitTools"""
     
@@ -342,6 +344,7 @@ class TestGitToolsErrorHandling:
 
 
 # Integration tests
+@pytest.mark.integration
 class TestGitToolsIntegration:
     """Integration tests for GitTools"""
     
