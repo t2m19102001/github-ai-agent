@@ -87,12 +87,14 @@ class PlannerAgent:
             except Exception as e:
                 logger.warning(f"RAG query failed: {e}")
         
+        rag_section = f"Relevant Code Context:\n{rag_context}" if rag_context else ""
+
         prompt = f"""
 You are a Planner Agent. Analyze the task and create a detailed execution plan.
 
 Task: {task}
 Context: {state.task_data}
-{f"Relevant Code Context:\n{rag_context}" if rag_context else ""}
+{rag_section}
 
 Provide:
 1. Task breakdown into specific steps
@@ -136,13 +138,15 @@ class CoderAgent:
             except Exception as e:
                 logger.warning(f"RAG query failed: {e}")
         
+        rag_section = f"Relevant Code Context:\n{rag_context}" if rag_context else ""
+
         prompt = f"""
 You are a Coder Agent. Implement code based on the plan and task.
 
 Task: {task}
 Plan: {plan}
 Context: {state.task_data}
-{f"Relevant Code Context:\n{rag_context}" if rag_context else ""}
+{rag_section}
 
 Requirements:
 1. Write clean, production-ready code
@@ -195,13 +199,15 @@ class ReviewerAgent:
             except Exception as e:
                 logger.warning(f"RAG query failed: {e}")
         
+        rag_section = f"Relevant Code Context:\n{rag_context}" if rag_context else ""
+
         prompt = f"""
 You are a Reviewer Agent. Review the implementation against the plan and requirements.
 
 Task: {task}
 Plan: {plan}
 Code: {code}
-{f"Relevant Code Context:\n{rag_context}" if rag_context else ""}
+{rag_section}
 
 Review for:
 1. Correctness and functionality

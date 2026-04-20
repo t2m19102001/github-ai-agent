@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional
 
 # Try to import LlamaIndex, fallback to simple implementation
 try:
-    from llama_index import VectorStoreIndex, SimpleDirectoryReader, ServiceContext
+    from llama_index import VectorStoreIndex, SimpleDirectoryReader, ServiceContext, load_index_from_storage
     from llama_index.retrievers import VectorIndexRetriever
     from llama_index.query_engine import RetrieverQueryEngine
     from llama_index.node_parser import SimpleNodeParser

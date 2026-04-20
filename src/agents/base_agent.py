@@ -118,8 +118,11 @@ class BaseAgent(ABC):
             # Add user prompt
             messages.append({"role": "user", "content": prompt})
             
-            # Generate response
-            response = await self.llm_provider.generate_async(messages)
+            # Generate response (support both async-legacy and provider call contract)
+            if hasattr(self.llm_provider, "generate_async"):
+                response = await self.llm_provider.generate_async(messages)
+            else:
+                response = self.llm_provider.call(messages)
             
             return response
             
