@@ -68,6 +68,8 @@ class RepositoryOperations:
         start_time = datetime.now()
         
         try:
+            self.github_client = get_github_client()
+
             # Validate repository access
             if not self.github_client:
                 return CloneResult(False, None, "GitHub client not available", 0, None)

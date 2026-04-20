@@ -322,7 +322,10 @@ class TestGitToolsErrorHandling:
     def git_tools_invalid(self):
         """Create GitTools instance with invalid path"""
         with tempfile.TemporaryDirectory() as temp_dir:
-            return GitTools(temp_dir)
+            git_tools = GitTools.__new__(GitTools)
+            git_tools.repo_path = temp_dir
+            git_tools.is_git_repo = False
+            return git_tools
     
     def test_run_git_command_timeout(self, git_tools_invalid):
         """Test handling of git command timeout"""

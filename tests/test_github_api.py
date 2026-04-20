@@ -5,6 +5,8 @@ Tests for GitHub API integration
 
 import pytest
 import asyncio
+import hmac
+import hashlib
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 

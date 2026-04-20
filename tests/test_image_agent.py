@@ -194,7 +194,11 @@ class TestImageAgent(unittest.TestCase):
         
         for i, doc in enumerate(test_docs):
             embedding = np.random.rand(128)
-            vector_store.add_document(f"doc_{i}", doc, embedding, {"type": "error_handling"})
+            vector_store.add_document(
+                content=doc,
+                metadata={"type": "error_handling"},
+                embedding=embedding
+            )
         
         # Create agent with RAG
         agent_with_rag = ImageAgent(rag_store=vector_store)
