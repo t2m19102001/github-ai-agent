@@ -126,6 +126,13 @@ class ToolList(list):
             return any(isinstance(entry, dict) and entry.get("name") == item for entry in self)
         return super().__contains__(item)
 
+    def names(self) -> List[str]:
+        return [
+            entry["name"]
+            for entry in self
+            if isinstance(entry, dict) and "name" in entry
+        ]
+
 
 class ToolKit:
     def __init__(self):
@@ -173,4 +180,5 @@ class AdvancedAIAgent:
             "expertise": self.profile.expertise,
             "agent_name": self.profile.name,
             "agent_role": self.profile.role,
+            "registered_tools": self.toolkit.list_tools(),
         }

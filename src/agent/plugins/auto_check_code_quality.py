@@ -5,14 +5,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from .base import PluginBase
+from .base import PluginBase, PluginResult
 
 
 class AutoCheckCodeQualityPlugin(PluginBase):
     name = "auto_check_code_quality"
 
     def should_run(self, event: Dict[str, Any]) -> bool:
-        return event.get("type") == "pr"
+        event_type = (event.get("type") or "").lower()
+        return event_type in {"pr", "pull_request"}
 
     def run(self, event: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
         findings: List[str] = []
@@ -27,4 +28,5 @@ class AutoCheckCodeQualityPlugin(PluginBase):
             return []
 
         comment = "Auto Review Findings:\n- " + "\n- ".join(findings)
-        return [{"plugin": self.name, "action": "comment", "comment": comment}]
+        return [PluginResult(plugin=self.name, action="comment", comment=comment).to_dict()]
+
