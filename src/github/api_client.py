@@ -21,9 +21,24 @@ try:
 except ImportError:
     PYGITHUB_AVAILABLE = False
     # Create mock classes for fallback
+    class _MockUser:
+        login = "mock-user"
+
+    class _MockRateCore:
+        remaining = 5000
+        limit = 5000
+        reset = int(time.time()) + 3600
+
+    class _MockRate:
+        core = _MockRateCore()
+
     class Github:
         def __init__(self, token):
             self.token = token
+        def get_user(self):
+            return _MockUser()
+        def get_rate_limit(self):
+            return _MockRate()
         def get_repo(self, repo_name):
             raise Exception("PyGitHub not installed")
     class GithubException(Exception):
@@ -82,6 +97,9 @@ class GitHubAPIClient:
     def _initialize_client(self):
         """Initialize GitHub client with authentication"""
         try:
+            if not PYGITHUB_AVAILABLE and self.token:
+                raise ValueError("PyGitHub not available")
+
             if self.token:
                 self.client = Github(self.token)
                 logger.info("GitHub client initialized with personal access token")
@@ -90,12 +108,13 @@ class GitHubAPIClient:
                 logger.warning("GitHub App authentication not fully implemented")
                 self.client = Github(self.token)  # Fallback to token
             else:
-                logger.error("No GitHub authentication provided")
-                raise ValueError("GitHub token or app credentials required")
+                logger.warning("No GitHub authentication provided; using unauthenticated client")
+                self.client = Github(None)
                 
             # Test connection
-            self.client.get_user().login
-            logger.info("GitHub API connection successful")
+            if hasattr(self.client, "get_user"):
+                self.client.get_user().login
+                logger.info("GitHub API connection successful")
             
         except Exception as e:
             logger.error(f"Failed to initialize GitHub client: {e}")
@@ -137,10 +156,6 @@ class GitHubAPIClient:
     
     def get_repository_info(self, repo_name: str) -> Optional[RepositoryInfo]:
         """Get comprehensive repository information"""
-        if not PYGITHUB_AVAILABLE:
-            logger.error("PyGitHub not available")
-            return None
-        
         try:
             self._check_rate_limit()
             self._wait_for_rate_limit()
@@ -172,9 +187,6 @@ class GitHubAPIClient:
     
     def list_repository_files(self, repo_name: str, branch: Optional[str] = None, path: str = "") -> List[str]:
         """List files in repository"""
-        if not PYGITHUB_AVAILABLE:
-            return []
-        
         try:
             self._check_rate_limit()
             self._wait_for_rate_limit()
@@ -201,9 +213,6 @@ class GitHubAPIClient:
     
     def get_file_content(self, repo_name: str, file_path: str, branch: Optional[str] = None) -> Optional[str]:
         """Get file content from repository"""
-        if not PYGITHUB_AVAILABLE:
-            return None
-        
         try:
             self._check_rate_limit()
             self._wait_for_rate_limit()
@@ -226,9 +235,6 @@ class GitHubAPIClient:
     
     def create_branch(self, repo_name: str, branch_name: str, from_branch: str = "main") -> bool:
         """Create a new branch"""
-        if not PYGITHUB_AVAILABLE:
-            return False
-        
         try:
             self._check_rate_limit()
             self._wait_for_rate_limit()
@@ -250,9 +256,6 @@ class GitHubAPIClient:
     
     def create_pull_request(self, repo_name: str, title: str, body: str, head: str, base: str = "main") -> Optional[str]:
         """Create a pull request"""
-        if not PYGITHUB_AVAILABLE:
-            return None
-        
         try:
             self._check_rate_limit()
             self._wait_for_rate_limit()
@@ -270,9 +273,6 @@ class GitHubAPIClient:
     
     def list_issues(self, repo_name: str, state: str = "open", labels: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """List repository issues"""
-        if not PYGITHUB_AVAILABLE:
-            return []
-        
         try:
             self._check_rate_limit()
             self._wait_for_rate_limit()
@@ -307,9 +307,6 @@ class GitHubAPIClient:
     
     def create_issue_comment(self, repo_name: str, issue_number: int, body: str) -> bool:
         """Create comment on issue"""
-        if not PYGITHUB_AVAILABLE:
-            return False
-        
         try:
             self._check_rate_limit()
             self._wait_for_rate_limit()
@@ -328,10 +325,8 @@ class GitHubAPIClient:
     
     def get_rate_limit_status(self) -> Dict[str, Any]:
         """Get current rate limit status"""
-        if not PYGITHUB_AVAILABLE:
-            return {"error": "PyGitHub not available"}
-        
-        self._check_rate_limit()
+        if self.rate_limit_info is None:
+            self._check_rate_limit()
         
         if not self.rate_limit_info:
             return {"error": "Rate limit info not available"}

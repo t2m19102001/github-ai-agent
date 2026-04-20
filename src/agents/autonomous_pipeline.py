@@ -31,6 +31,8 @@ class CodeAnalyzer:
         
         try:
             repo_path = Path(repo_path)
+            if not repo_path.exists():
+                raise FileNotFoundError(f"Repository path does not exist: {repo_path}")
             
             # Basic structure analysis
             python_files = list(repo_path.rglob("*.py"))
@@ -222,6 +224,11 @@ class PRCreator:
             
             title = issue_data.get("title", "")
             body = issue_data.get("body", "")
+            pass_rate = patch_data.get("test_results", {}).get("pass_rate", "N/A")
+            if isinstance(pass_rate, (int, float)):
+                pass_rate_text = f"{pass_rate:.0%}"
+            else:
+                pass_rate_text = str(pass_rate)
             
             pr_data = {
                 "title": f"Fix: {title}",
@@ -234,7 +241,7 @@ Addresses issue: {title}
 - Ran tests to ensure functionality
 
 ## Test Results
-- Pass rate: {patch_data.get('test_results', {}).get('pass_rate', 'N/A')}
+- Pass rate: {pass_rate_text}
 - All tests passed: {patch_data.get('test_results', {}).get('meets_target', False)}
 
 ## Security

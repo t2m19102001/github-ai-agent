@@ -31,13 +31,16 @@ class GitTools:
     def __init__(self, repo_path: str):
         self.repo_path = str(Path(repo_path))
         git_dir = Path(self.repo_path) / ".git"
-        if not git_dir.exists():
+        self.is_git_repo = git_dir.exists()
+        if not self.is_git_repo:
             raise ValueError("Not a git repository")
         self._ensure_main_branch()
 
     def _run_git_command(self, args: List[str], check: bool = False) -> subprocess.CompletedProcess:
         cmd = ["git", *args]
         try:
+            if not self.is_git_repo:
+                return subprocess.CompletedProcess(cmd, returncode=1, stdout="", stderr="Not a git repository")
             return subprocess.run(
                 cmd,
                 cwd=self.repo_path,
