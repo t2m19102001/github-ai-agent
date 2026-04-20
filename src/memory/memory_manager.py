@@ -525,14 +525,18 @@ def save_memory(key: str, value: Any, memory_type: str = "fact"):
     return save_memory._manager.remember(key, value, memory_type)
 
 
-def get_memory(key: str):
-    """Legacy get_memory function"""
+def get_memory(key: str, k: int = 10):
+    """Legacy get_memory function with optional top-k recall compatibility."""
     import os
     if not hasattr(get_memory, '_manager'):
         db_path = os.path.join("data", "memory.db")
         get_memory._manager = MemoryManager(db_path)
-    entries = get_memory._manager.recall(key)
-    return entries[0].value if entries else None
+    entries = get_memory._manager.recall(key, limit=k)
+    if not entries:
+        return None
+    if len(entries) == 1:
+        return entries[0].value
+    return [entry.value for entry in entries]
 
 
 # Global instance
