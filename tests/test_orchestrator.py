@@ -192,6 +192,7 @@ class TestMultiAgentOrchestrator:
         overall_metrics = self.orchestrator.performance_tracker.get_metrics()
         assert overall_metrics["success_rate"] >= 0.9
     
+    @pytest.mark.integration
     def test_task_execution_with_llm_failure(self):
         """Test task execution when LLM fails"""
         # Create failing mock LLM

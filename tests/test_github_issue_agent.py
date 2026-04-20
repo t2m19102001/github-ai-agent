@@ -330,6 +330,7 @@ class TestGitHubIssueAgent:
         priority = agent._assess_priority(text, None)
         assert priority == "Critical"
     
+    @pytest.mark.integration
     def test_assess_priority_high(self, agent):
         """Test priority assessment for high priority issues"""
         text = "This is an important bug that needs immediate attention"

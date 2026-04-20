@@ -1,5 +1,10 @@
 """
 Agents module - AI agents
+Unified exports for all agent-related classes
+
+Architecture:
+- base.py: Tool, Executor, Agent (backward compat)
+- base_agent.py: BaseAgent, AgentContext, AgentMessage (async support)
 """
 from src.agents.base import Agent, Tool, Executor
 
