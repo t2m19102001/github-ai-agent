@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.agents.completion_agent import CodeCompletionAgent
+from src.plugins.completion_agent import CodeCompletionAgent
 from dotenv import load_dotenv
 
 load_dotenv()

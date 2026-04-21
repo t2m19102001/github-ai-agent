@@ -9,7 +9,7 @@ import json
 import argparse
 from typing import Optional
 from src.llm.groq import GroqProvider
-from src.agents.agent_factory import create_agent, list_available_agents
+from src.plugins.agent_factory import create_agent, list_available_agents
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)

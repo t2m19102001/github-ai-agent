@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.tools.autofix_tool import run_pytest, auto_fix
 from src.llm.groq import GroqProvider
-from src.agents.code_agent import CodeChatAgent
+from src.plugins.code_agent import CodeChatAgent
 
 def test_pytest():
     """Test pytest runner"""

@@ -17,7 +17,7 @@ async def test_webhook_issue_comment(monkeypatch):
     monkeypatch.setenv("API_TOKEN", "t")
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "s")
     monkeypatch.setenv("AGENT_PLUGINS", "auto_comment_on_issue")
-    from src.agent.api import app
+    from src.plugins.api import app
     transport = httpx.ASGITransport(app=app)
     payload = {
         "issue": {"title": "Help needed", "labels": [{"name": "question"}]}
@@ -44,7 +44,7 @@ async def test_webhook_issue_comment(monkeypatch):
 async def test_webhook_pull_request(monkeypatch):
     monkeypatch.setenv("API_TOKEN", "t")
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "s")
-    from src.agent.api import app
+    from src.plugins.api import app
     transport = httpx.ASGITransport(app=app)
     payload = {
         "pull_request": {"title": "Feature X"}

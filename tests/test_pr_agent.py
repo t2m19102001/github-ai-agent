@@ -20,7 +20,7 @@ def test_imports():
     print("="*70)
     
     try:
-        from src.agents.pr_agent import GitHubPRAgent
+        from src.plugins.pr_agent import GitHubPRAgent
         print("✅ PR Agent import successful")
     except Exception as e:
         print(f"❌ PR Agent import failed: {e}")
@@ -108,7 +108,7 @@ def test_pr_agent():
     print("🧪 Testing PR Agent")
     print("="*70)
     
-    from src.agents.pr_agent import GitHubPRAgent
+    from src.plugins.pr_agent import GitHubPRAgent
     
     github_token = os.getenv('GITHUB_TOKEN')
     if not github_token:
@@ -161,7 +161,7 @@ def test_webhook_handler():
     print("🧪 Testing Webhook Handler")
     print("="*70)
     
-    from src.agents.pr_agent import GitHubPRAgent
+    from src.plugins.pr_agent import GitHubPRAgent
     
     github_token = os.getenv('GITHUB_TOKEN')
     if not github_token:

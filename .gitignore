@@ -41,11 +41,18 @@ Thumbs.db
 # Logs
 *.log
 logs/
+*.db
+
 # RAG vector store
 .chroma/
 
 # Long-term memory store
 .memory/
+
+# Local data
+data/*.json
+data/*.db
+data/vector_store/
 
 # JS dependencies
 vscode-extension/node_modules/

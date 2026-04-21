@@ -43,7 +43,7 @@ jobs:
       - name: 🔧 Verify Installation
         run: |
           python -c "from src.web.main import app; print('✅ FastAPI app loaded')"
-          python -c "from src.agents.image_agent import ImageAgent; print('✅ ImageAgent loaded')"
+          python -c "from src.plugins.image_agent import ImageAgent; print('✅ ImageAgent loaded')"
           python -c "import pytesseract; print('✅ Tesseract OCR ready')"
           python -c "import cv2; print('✅ OpenCV ready')"
       
@@ -125,11 +125,11 @@ jobs:
       - name: 🔍 Health Check
         run: |
           python -c "
-          from src.agents.agent_manager import AgentManager
-          from src.agents.github_issue_agent import GitHubIssueAgent
-          from src.agents.code_agent import CodeChatAgent
-          from src.agents.doc_agent import DocumentationAgent
-          from src.agents.image_agent import ImageAgent
+          from src.plugins.agent_manager import AgentManager
+          from src.plugins.github_issue_agent import GitHubIssueAgent
+          from src.plugins.code_agent import CodeChatAgent
+          from src.plugins.doc_agent import DocumentationAgent
+          from src.plugins.image_agent import ImageAgent
           
           print('✅ All agents initialized successfully')
           print('✅ Phase 5 multi-modal system ready')

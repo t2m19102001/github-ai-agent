@@ -10,7 +10,7 @@ import os
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 
-from src.agents.github_issue_agent import (
+from src.plugins.github_issue_agent import (
     GitHubIssueAgent, IssueAnalysis, IssueSuggestion
 )
 from src.tools.github_tools import GitHubIssue

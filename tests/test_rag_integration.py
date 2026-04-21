@@ -183,7 +183,7 @@ class TestRAGIntegrationWithAgents:
     
     def test_planner_with_rag_context(self):
         """Test planner agent using RAG context"""
-        from src.agents.orchestrator import PlannerAgent
+        from src.plugins.orchestrator import PlannerAgent
         
         # Mock LLM and RAG
         mock_llm = Mock()
@@ -196,7 +196,7 @@ class TestRAGIntegrationWithAgents:
             planner = PlannerAgent(mock_llm)
             
             # Create mock state
-            from src.agents.orchestrator import AgentState
+            from src.plugins.orchestrator import AgentState
             state = AgentState(task_data={"issue": "test issue"})
             
             result = planner.process(state, "Implement feature X")
@@ -206,7 +206,7 @@ class TestRAGIntegrationWithAgents:
     
     def test_coder_with_rag_context(self):
         """Test coder agent using RAG context"""
-        from src.agents.orchestrator import CoderAgent
+        from src.plugins.orchestrator import CoderAgent
         
         # Mock LLM and RAG
         mock_llm = Mock()
@@ -219,7 +219,7 @@ class TestRAGIntegrationWithAgents:
             coder = CoderAgent(mock_llm)
             
             # Create mock state with planner message
-            from src.agents.orchestrator import AgentState, AgentMessage, AgentRole
+            from src.plugins.orchestrator import AgentState, AgentMessage, AgentRole
             state = AgentState(task_data={"issue": "test issue"})
             state.messages = [
                 AgentMessage(role=AgentRole.PLANNER, content="Plan: Implement feature")
@@ -232,7 +232,7 @@ class TestRAGIntegrationWithAgents:
     
     def test_reviewer_with_rag_context(self):
         """Test reviewer agent using RAG context"""
-        from src.agents.orchestrator import ReviewerAgent
+        from src.plugins.orchestrator import ReviewerAgent
         
         # Mock LLM and RAG
         mock_llm = Mock()
@@ -245,7 +245,7 @@ class TestRAGIntegrationWithAgents:
             reviewer = ReviewerAgent(mock_llm)
             
             # Create mock state with planner and coder messages
-            from src.agents.orchestrator import AgentState, AgentMessage, AgentRole
+            from src.plugins.orchestrator import AgentState, AgentMessage, AgentRole
             state = AgentState(task_data={"issue": "test issue"})
             state.messages = [
                 AgentMessage(role=AgentRole.PLANNER, content="Plan: Implement feature"),
@@ -259,7 +259,7 @@ class TestRAGIntegrationWithAgents:
     
     def test_rag_failure_handling(self):
         """Test agent behavior when RAG fails"""
-        from src.agents.orchestrator import PlannerAgent
+        from src.plugins.orchestrator import PlannerAgent
         
         # Mock LLM and failing RAG
         mock_llm = Mock()
@@ -271,7 +271,7 @@ class TestRAGIntegrationWithAgents:
         with patch('src.agents.orchestrator.get_rag_instance', return_value=mock_rag):
             planner = PlannerAgent(mock_llm)
             
-            from src.agents.orchestrator import AgentState
+            from src.plugins.orchestrator import AgentState
             state = AgentState(task_data={"issue": "test issue"})
             
             result = planner.process(state, "Implement feature X")

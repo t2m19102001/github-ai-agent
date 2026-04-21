@@ -15,9 +15,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.agents.agent_manager import AgentManager, Task, CollaborativeResult
-from src.agents.github_issue_agent import GitHubIssueAgent
-from src.agents.doc_agent import DocumentationAgent
+from src.plugins.agent_manager import AgentManager, Task, CollaborativeResult
+from src.plugins.github_issue_agent import GitHubIssueAgent
+from src.plugins.doc_agent import DocumentationAgent
 from src.rag.vector_store import VectorStore
 from src.memory.memory_manager import MemoryManager
 from src.agents.base_agent import AgentContext, SimpleAgent

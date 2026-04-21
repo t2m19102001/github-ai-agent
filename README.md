@@ -158,7 +158,7 @@ pytest tests/test_image_agent.py
 ### **Test Individual Components**
 ```bash
 # Test agents
-python -c "from src.agents.image_agent import ImageAgent; print('✅ ImageAgent')"
+python -c "from src.plugins.image_agent import ImageAgent; print('✅ ImageAgent')"
 python -c "from src.web.main import app; print('✅ FastAPI app')"
 
 # Test image processing

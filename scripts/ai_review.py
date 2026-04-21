@@ -16,9 +16,9 @@ from datetime import datetime
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.agents.agent_manager import AgentManager
-from src.agents.github_issue_agent import GitHubIssueAgent
-from src.agents.doc_agent import DocumentationAgent
+from src.plugins.agent_manager import AgentManager
+from src.plugins.github_issue_agent import GitHubIssueAgent
+from src.plugins.doc_agent import DocumentationAgent
 from src.memory.log_manager import log_activity
 from src.utils.logger import get_logger
 

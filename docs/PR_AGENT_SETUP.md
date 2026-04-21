@@ -35,7 +35,7 @@ GITHUB_WEBHOOK_SECRET=your_secret_key
 ### Option A: Using Python Script
 
 ```python
-from src.agents.pr_agent import GitHubPRAgent
+from src.plugins.pr_agent import GitHubPRAgent
 import os
 from dotenv import load_dotenv
 
@@ -124,7 +124,7 @@ The agent will:
 ```bash
 # Direct test
 python -c "
-from src.agents.pr_agent import GitHubPRAgent
+from src.plugins.pr_agent import GitHubPRAgent
 import os
 from dotenv import load_dotenv
 load_dotenv()

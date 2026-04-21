@@ -20,7 +20,7 @@ This framework enables building sophisticated, specialized AI agents that can ha
 Defines agent personality, role, and expertise.
 
 ```python
-from src.agents.advanced_agent import AgentProfile
+from src.plugins.advanced_agent import AgentProfile
 
 profile = AgentProfile(
     name="PyMaster",
@@ -46,7 +46,7 @@ instruction = profile.get_system_instruction()
 Manages conversation context and knowledge base with RAG (Retrieval-Augmented Generation).
 
 ```python
-from src.agents.advanced_agent import MemoryStore
+from src.plugins.advanced_agent import MemoryStore
 
 memory = MemoryStore(max_short_term=20)
 
@@ -81,7 +81,7 @@ stats = memory.get_memory_stats()
 Breaks complex tasks into steps with reasoning and reflection.
 
 ```python
-from src.agents.advanced_agent import PlanningEngine
+from src.plugins.advanced_agent import PlanningEngine
 
 engine = PlanningEngine()
 
@@ -118,7 +118,7 @@ reflection = engine.self_reflection(
 Execute code, manage files, and call APIs.
 
 ```python
-from src.agents.advanced_agent import CodeExecutorTool, FileOperationsTool, ToolKit
+from src.plugins.advanced_agent import CodeExecutorTool, FileOperationsTool, ToolKit
 
 # Individual tools
 code_tool = CodeExecutorTool()
@@ -148,7 +148,7 @@ tools_list = toolkit.list_tools()
 Orchestrates all 4 components.
 
 ```python
-from src.agents.advanced_agent import AdvancedAIAgent, AgentProfile
+from src.plugins.advanced_agent import AdvancedAIAgent, AgentProfile
 from src.llm.groq import GroqProvider
 
 # Create profile
@@ -193,7 +193,7 @@ status = agent.get_agent_status()
 Create specialized agents with one function call.
 
 ```python
-from src.agents.agent_factory import create_agent
+from src.plugins.agent_factory import create_agent
 
 # Create Python Expert
 python_agent = create_agent("python_expert", llm)

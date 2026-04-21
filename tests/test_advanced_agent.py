@@ -6,7 +6,7 @@ Unit tests cho Advanced AI-Agent Framework
 import pytest
 import json
 from unittest.mock import Mock, patch, MagicMock
-from src.agents.advanced_agent import (
+from src.plugins.advanced_agent import (
     AgentProfile, MemoryStore, PlanningEngine, Tool, CodeExecutorTool,
     FileOperationsTool, APICallTool, ToolKit, AdvancedAIAgent
 )

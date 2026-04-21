@@ -4,7 +4,7 @@ Tests for Test Generation Agent
 """
 
 import pytest
-from src.agents.test_agent import TestGenerationAgent
+from src.plugins.test_agent import TestGenerationAgent
 from src.tools.test_tools import (
     MockGeneratorTool,
     FixtureGeneratorTool,

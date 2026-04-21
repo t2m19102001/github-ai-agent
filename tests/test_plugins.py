@@ -5,9 +5,9 @@ Tests for Agent Plugins
 
 import pytest
 import asyncio
-from src.agent.plugins.base import PluginRegistry, BasePlugin, PluginResult
-from src.agent.plugins.auto_check_code_quality import AutoCheckCodeQualityPlugin
-from src.agent.plugins.auto_comment_on_issue import AutoCommentOnIssuePlugin
+from src.plugins.plugins.base import PluginRegistry, BasePlugin, PluginResult
+from src.plugins.plugins.auto_check_code_quality import AutoCheckCodeQualityPlugin
+from src.plugins.plugins.auto_comment_on_issue import AutoCommentOnIssuePlugin
 
 
 def test_quality_plugin_initialization():

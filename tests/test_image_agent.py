@@ -16,7 +16,7 @@ from io import BytesIO
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.agents.image_agent import ImageAgent
+from src.plugins.image_agent import ImageAgent
 from src.rag.vector_store import VectorStore
 from src.utils.logger import get_logger
 

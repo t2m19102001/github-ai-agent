@@ -48,7 +48,7 @@ class TestAgents:
     """Test agent implementations."""
 
     def test_code_agent_creates(self):
-        from src.agents.code_agent import CodeChatAgent
+        from src.plugins.code_agent import CodeChatAgent
         from src.llm.provider import get_llm_provider
 
         llm = get_llm_provider("mock")

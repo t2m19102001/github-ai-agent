@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.agents.code_agent import CodeChatAgent
+from src.plugins.code_agent import CodeChatAgent
 from src.config.settings import LLMProvider
 from src.utils.token_manager import TokenManager
 

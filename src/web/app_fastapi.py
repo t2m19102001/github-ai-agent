@@ -7,8 +7,8 @@ Modern UI backend with streaming LLM responses and long-term memory
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from src.agents.code_agent import CodeChatAgent
-from src.agent.ai_provider import get_default_provider, ProviderAdapter
+from src.plugins.code_agent import CodeChatAgent
+from src.plugins.ai_provider import get_default_provider, ProviderAdapter
 from src.utils.logger import get_logger
 from src.core.config import DEBUG, CHAT_PORT
 from src.tools.git_tool import git_commit, git_create_branch, git_status, git_diff, git_branch_list, git_log
@@ -234,7 +234,7 @@ async def api_autofix(request: Request):
     
     # Need agent instance - create temporary one
     from src.llm.groq import GroqProvider
-    from src.agents.code_agent import CodeChatAgent
+    from src.plugins.code_agent import CodeChatAgent
     
     temp_llm = GroqProvider()
     temp_agent = CodeChatAgent(llm_provider=temp_llm)

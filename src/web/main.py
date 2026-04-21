@@ -26,11 +26,11 @@ import tempfile
 from src.memory.log_manager import get_logs, get_log_stats, log_activity
 
 # Import Phase 3 components
-from src.agents.agent_manager import AgentManager, Task
-from src.agents.github_issue_agent import GitHubIssueAgent
-from src.agents.code_agent import CodeChatAgent
-from src.agents.doc_agent import DocumentationAgent
-from src.agents.image_agent import ImageAgent
+from src.plugins.agent_manager import AgentManager, Task
+from src.plugins.github_issue_agent import GitHubIssueAgent
+from src.plugins.code_agent import CodeChatAgent
+from src.plugins.doc_agent import DocumentationAgent
+from src.plugins.image_agent import ImageAgent
 from src.rag.vector_store import VectorStore
 from src.memory.memory_manager import MemoryManager
 from src.llm.provider import get_llm_provider

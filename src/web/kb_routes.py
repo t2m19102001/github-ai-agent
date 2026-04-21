@@ -5,7 +5,7 @@ Cho phép thêm, cập nhật, tìm kiếm kiến thức
 """
 
 from flask import Blueprint, request, jsonify
-from src.agents.knowledge_base import get_knowledge_base
+from src.plugins.knowledge_base import get_knowledge_base
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)

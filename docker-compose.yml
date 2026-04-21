@@ -16,8 +16,12 @@ services:
       - DATABASE_URL=postgresql://github_user:github_password@db:5432/github_ai_agent
       - REDIS_URL=redis://redis:6379/0
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
       - GROQ_API_KEY=${GROQ_API_KEY}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - WEBHOOK_DEDUPLICATION_TTL_HOURS=24
+      - WEBHOOK_DEDUPLICATION_FALLBACK_TO_DB=true
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - DEBUG=false
@@ -26,6 +30,8 @@ services:
       - ./data:/app/data
       # Mount logs
       - ./logs:/app/logs
+      # Mount GitHub App private key (if using GitHub App)
+      - ./secrets:/app/secrets:ro
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]

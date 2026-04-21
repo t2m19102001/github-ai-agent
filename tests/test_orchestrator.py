@@ -6,7 +6,7 @@ Unit tests for Multi-Agent Orchestrator with performance metrics
 import pytest
 import time
 from unittest.mock import Mock, patch
-from src.agents.orchestrator import (
+from src.plugins.orchestrator import (
     MultiAgentOrchestrator, 
     AgentRole, 
     AgentMessage, 
@@ -252,7 +252,7 @@ class TestMultiAgentOrchestrator:
     
     def test_backward_compatibility(self):
         """Test backward compatibility with legacy orchestrator"""
-        from src.agents.orchestrator import Orchestrator
+        from src.plugins.orchestrator import Orchestrator
         
         # Create legacy orchestrator directly with multi-agent
         legacy_orchestrator = Orchestrator.__new__(Orchestrator)

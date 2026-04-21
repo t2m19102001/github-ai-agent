@@ -45,7 +45,7 @@ def validate_prompt(prompt: str, max_length: int = MAX_PROMPT_LENGTH) -> bool:
     return True
 
 
-def extract_code_blocks(text: str) -> list[dict]:
+def extract_code_blocks(text: str) -> List[dict]:
     """Extract code blocks from text"""
     pattern = r'```(?:(\w+)\n)?(.*?)```'
     matches = re.finditer(pattern, text, re.DOTALL)

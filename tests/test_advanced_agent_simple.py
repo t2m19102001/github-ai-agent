@@ -5,7 +5,7 @@ Focused on core functionality
 """
 
 import pytest
-from src.agents.advanced_agent import (
+from src.plugins.advanced_agent import (
     AgentProfile, MemoryStore, CodeExecutorTool, FileOperationsTool,
     ToolKit, AdvancedAIAgent
 )

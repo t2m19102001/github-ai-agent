@@ -9,7 +9,7 @@ import os
 from unittest.mock import Mock, patch, AsyncMock
 from pathlib import Path
 
-from src.agents.autonomous_pipeline import (
+from src.plugins.autonomous_pipeline import (
     AutonomousPipeline,
     CodeAnalyzer,
     CodePatcher,

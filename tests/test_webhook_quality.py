@@ -16,7 +16,7 @@ def _sig(secret: str, body: bytes) -> str:
 async def test_webhook_pull_request_quality(monkeypatch):
     monkeypatch.setenv("API_TOKEN", "t")
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "s")
-    from src.agent.api import app
+    from src.plugins.api import app
     transport = httpx.ASGITransport(app=app)
 
     patch = """

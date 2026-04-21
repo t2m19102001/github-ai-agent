@@ -3,7 +3,7 @@ import os
 import types
 import pytest
 
-from src.agent.ai_provider import (
+from src.plugins.ai_provider import (
     ProviderBase,
     GroqAIProvider,
     OllamaAIProvider,
