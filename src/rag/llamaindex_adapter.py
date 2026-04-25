@@ -93,6 +93,7 @@ class LlamaIndexRAG:
     
     def _build_llamaindex_index(self, source_dirs: List[str]) -> Dict[str, Any]:
         """Build index using LlamaIndex"""
+        start_time = time.time()
         documents = []
         
         # Load documents from source directories
@@ -156,6 +157,7 @@ class LlamaIndexRAG:
     
     def _build_simple_index(self, source_dirs: List[str]) -> Dict[str, Any]:
         """Build simple index when LlamaIndex is not available"""
+        start_time = time.time()
         documents = []
         
         # Load documents manually
