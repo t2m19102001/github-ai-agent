@@ -1,0 +1,74 @@
+# Chunking Strategy Configuration
+# Defines how code is split into chunks for indexing
+
+# Chunk Levels
+levels:
+  file:
+    enabled: true
+    description: "File-level summary (docstring + imports + public API)"
+    max_tokens: 512
+    
+  class:
+    enabled: true
+    description: "Class-level (class docstring + method signatures)"
+    max_tokens: 512
+    
+  function:
+    enabled: true
+    description: "Function-level (function code + docstring + callers)"
+    max_tokens: 512
+
+# Chunking Rules
+rules:
+  # Minimum chunk size (tokens)
+  min_chunk_tokens: 50
+  
+  # Maximum chunk size (tokens)
+  max_chunk_tokens: 512
+  
+  # Overlap between chunks (tokens)
+  chunk_overlap: 50
+  
+  # Include docstrings in chunks
+  include_docstrings: true
+  
+  # Include imports in file-level chunks
+  include_imports: true
+  
+  # Preserve line numbers for citations
+  preserve_line_numbers: true
+
+# Language-Specific Settings
+languages:
+  python:
+    enabled: true
+    parser: "tree-sitter"
+    
+    # Python-specific chunking
+    include_decorators: true
+    include_type_hints: true
+    include_comprehensions: true
+    
+    # Skip chunks for these patterns
+    skip_patterns:
+      - "^def __.*"  # Magic methods
+      - "^def test_"  # Test functions
+      
+  javascript:
+    enabled: false  # V2
+    parser: "tree-sitter"
+    
+  typescript:
+    enabled: false  # V2
+    parser: "tree-sitter"
+    
+  go:
+    enabled: false  # V2
+    parser: "tree-sitter"
+
+# Metadata Extraction
+metadata:
+  extract_symbols: true  # classes, functions, imports
+  extract_call_graph: true  # who calls what
+  extract_dependencies: true  # import relationships
+  extract_complexity: false  # cyclomatic complexity (V2)

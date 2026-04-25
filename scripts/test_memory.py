@@ -9,7 +9,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.memory import save_memory, get_memory
+from src.memory.memory_manager import save_memory, get_memory
 
 def test_memory():
     """Test memory save and retrieval"""

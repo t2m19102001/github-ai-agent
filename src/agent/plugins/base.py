@@ -114,6 +114,10 @@ class PluginRegistry:
             cls._plugins[name].enabled = False
 
     @classmethod
+    def list_plugins(cls) -> List[str]:
+        return list(cls._plugins.keys())
+
+    @classmethod
     async def execute_all(
         cls,
         context: Dict[str, Any],

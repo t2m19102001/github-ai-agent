@@ -1,0 +1,87 @@
+# Local AI Agent Configuration
+# Main configuration file for the local agent system
+
+# Agent Behavior
+agent:
+  name: "local-ai-agent"
+  version: "1.0.0"
+  mode: "suggest-only"  # read-only + suggest-only for V1
+  
+# Data Paths
+paths:
+  repo_path: "."  # Repository to analyze (default: current)
+  data_dir: "data/local_agent"
+  indices_dir: "data/local_agent/indices"
+  cache_dir: "data/local_agent/cache"
+  logs_dir: "data/local_agent/logs"
+  
+# Ingestion Settings
+ingestion:
+  file_patterns:
+    - "*.py"
+  exclude_patterns:
+    - ".*"
+    - "__pycache__"
+    - "*.pyc"
+    - "venv"
+    - ".venv"
+    - "node_modules"
+  respect_gitignore: true
+  max_file_size_mb: 10
+  
+# Indexing Settings
+indexing:
+  chunking_strategy: "hierarchical"  # file, class, function levels
+  embedding_model: "all-MiniLM-L6-v2"
+  embedding_dimension: 384
+  index_type: "flat"  # flat, ivf, hnsw
+  cache_embeddings: true
+  
+# Retrieval Settings
+retrieval:
+  default_k: 10  # Number of chunks to retrieve
+  max_tokens: 32000  # Context window limit
+  use_hybrid_search: true  # dense + sparse
+  dense_weight: 0.7
+  sparse_weight: 0.3
+  
+# LLM Settings (Ollama)
+llm:
+  provider: "ollama"
+  model: "llama3:8b"
+  base_url: "http://localhost:11434"
+  timeout_seconds: 60
+  temperature: 0.7
+  max_tokens: 4096
+  
+# Safety Guardrails
+safety:
+  readonly_patterns:
+    - "*.json"
+    - "*.yaml"
+    - "*.yml"
+    - ".env"
+    - "*config*"
+    - "*.lock"
+    - "*.toml"
+  max_lines_without_review: 1000
+  skip_generated: true
+  require_approval_for:
+    - "__init__.py"
+    - "conftest.py"
+    - "settings.py"
+    - "config.py"
+  max_files_per_suggestion: 5
+  
+# Memory Settings
+memory:
+  session_enabled: true
+  max_history_per_session: 100
+  log_actions: true
+  log_db_path: "data/local_agent_logs.db"
+  
+# CLI Settings
+cli:
+  default_output_format: "markdown"
+  show_citations: true
+  show_confidence: true
