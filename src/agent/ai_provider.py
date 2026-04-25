@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Sequence, Optional, Union
 
 if importlib.util.find_spec("requests"):
     import requests
@@ -54,7 +54,7 @@ class GroqAIProvider(ProviderBase):
 
 
 class OllamaAIProvider(ProviderBase):
-    def __init__(self, base_url: str | None = None):
+    def __init__(self, base_url: Optional[str] = None):
         self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
     @property
@@ -79,7 +79,7 @@ class OllamaAIProvider(ProviderBase):
 
 
 class HuggingFaceAIProvider(ProviderBase):
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: Optional[str] = None):
         self.token = os.getenv("HUGGINGFACE_TOKEN") or HUGGINGFACE_TOKEN
         self.model = model or os.getenv("HUGGINGFACE_MODEL") or HUGGINGFACE_MODEL
 
@@ -136,7 +136,7 @@ class ProviderAdapter:
     def __init__(self, provider: ProviderBase):
         self.provider = provider
 
-    def _messages_to_prompt(self, messages: Iterable[dict] | str) -> str:
+    def _messages_to_prompt(self, messages: Union[Iterable[dict], str]) -> str:
         if isinstance(messages, str):
             return messages
 
@@ -147,7 +147,7 @@ class ProviderAdapter:
             parts.append(f"{role}: {content}")
         return "\n\n".join(parts)
 
-    def call(self, messages: Iterable[dict] | str) -> str:
+    def call(self, messages: Union[Iterable[dict], str]) -> str:
         prompt = self._messages_to_prompt(messages)
         return self.provider.get_response(prompt)
 
@@ -156,7 +156,7 @@ def get_default_provider() -> ProviderBase:
     """Select the first configured provider, falling back to a mock provider."""
     provider_name = (os.getenv("LLM_PROVIDER") or LLM_PROVIDER or "").lower()
 
-    candidates: list[ProviderBase] = []
+    candidates: List[ProviderBase] = []
     if provider_name == "groq":
         candidates.append(GroqAIProvider())
     elif provider_name == "huggingface":

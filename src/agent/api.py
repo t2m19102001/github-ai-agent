@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request
 
@@ -20,7 +20,7 @@ from src.agent.plugins import (
 app = FastAPI(title="Agent Compatibility API", version="1.0.0")
 
 
-def _authorized(authorization: str | None) -> bool:
+def _authorized(authorization: Optional[str]) -> bool:
     expected = os.getenv("API_TOKEN", "")
     if not expected:
         return True
@@ -37,7 +37,7 @@ def _plugin_manager_from_env() -> PluginManager:
     return PluginManager(plugins)
 
 
-def _verify_signature(secret: str, body: bytes, signature: str | None) -> bool:
+def _verify_signature(secret: str, body: bytes, signature: Optional[str]) -> bool:
     if not secret:
         return True
     if not signature:
@@ -47,7 +47,7 @@ def _verify_signature(secret: str, body: bytes, signature: str | None) -> bool:
 
 
 @app.get("/providers")
-async def providers(authorization: str | None = Header(default=None)):
+async def providers(authorization: Optional[str] = Header(default=None)):
     if not _authorized(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
     ordered = ["mock", "groq", "ollama", "huggingface"]
@@ -55,7 +55,7 @@ async def providers(authorization: str | None = Header(default=None)):
 
 
 @app.get("/plugins")
-async def plugins(authorization: str | None = Header(default=None)):
+async def plugins(authorization: Optional[str] = Header(default=None)):
     if not _authorized(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
     enabled = [item.strip() for item in os.getenv("AGENT_PLUGINS", "").split(",") if item.strip()]
@@ -63,7 +63,7 @@ async def plugins(authorization: str | None = Header(default=None)):
 
 
 @app.post("/analyze-issue")
-async def analyze_issue(payload: Dict[str, Any], authorization: str | None = Header(default=None)):
+async def analyze_issue(payload: Dict[str, Any], authorization: Optional[str] = Header(default=None)):
     if not _authorized(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
     labels = payload.get("labels") or []
@@ -79,7 +79,7 @@ async def analyze_issue(payload: Dict[str, Any], authorization: str | None = Hea
 
 
 @app.get("/api/status")
-async def status(authorization: str | None = Header(default=None)):
+async def status(authorization: Optional[str] = Header(default=None)):
     if not _authorized(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return {"ready": True, "providers": ["mock"]}
@@ -88,9 +88,9 @@ async def status(authorization: str | None = Header(default=None)):
 @app.post("/api/github/webhook")
 async def github_webhook(
     request: Request,
-    authorization: str | None = Header(default=None),
-    x_github_event: str | None = Header(default=None),
-    x_hub_signature_256: str | None = Header(default=None),
+    authorization: Optional[str] = Header(default=None),
+    x_github_event: Optional[str] = Header(default=None),
+    x_hub_signature_256: Optional[str] = Header(default=None),
 ):
     if not _authorized(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")

@@ -15,7 +15,7 @@ from src.tools.file_tools import FileReadTool, FileWriteTool, ListFilesTool
 from src.tools.codebase_rag import retrieve, get_context
 from src.tools.git_tool import git_commit, git_create_branch, git_status
 from src.tools.autofix_tool import AutoFixTool, PytestTool
-from src.memory import save_memory, get_memory
+from src.memory.memory_manager import save_memory, get_memory
 from src.utils.token_manager import TokenManager
 import uuid
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -84,7 +85,8 @@ class CodeExecutorTool(Tool):
     description = "Run Python snippets safely for tests"
 
     def execute(self, code: str) -> Dict[str, Any]:
-        result = subprocess.run(["python", "-c", code], capture_output=True, text=True)
+        python_exe = sys.executable
+        result = subprocess.run([python_exe, "-c", code], capture_output=True, text=True)
         if result.returncode == 0:
             return {"status": "success", "output": result.stdout, "return_code": result.returncode}
         return {

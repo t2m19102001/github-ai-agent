@@ -1,0 +1,87 @@
+# Model Configuration
+# Defines models used for embeddings and generation
+
+# Embedding Models (for vector search)
+embeddings:
+  default: "all-MiniLM-L6-v2"
+  
+  models:
+    all-MiniLM-L6-v2:
+      provider: "sentence-transformers"
+      dimension: 384
+      max_sequence_length: 512
+      description: "Fast, good quality for code"
+      
+    all-mpnet-base-v2:
+      provider: "sentence-transformers"
+      dimension: 768
+      max_sequence_length: 512
+      description: "Higher quality, slower"
+      enabled: false
+      
+    codebert-base:
+      provider: "sentence-transformers"
+      dimension: 768
+      max_sequence_length: 512
+      description: "Code-specific embeddings"
+      enabled: false
+
+# LLM Models (for generation)
+llm:
+  default: "ollama/llama3:8b"
+  
+  providers:
+    ollama:
+      enabled: true
+      base_url: "http://localhost:11434"
+      
+      models:
+        llama3:8b:
+          name: "llama3:8b"
+          max_tokens: 4096
+          context_window: 8192
+          description: "General purpose, good for planning"
+          
+        deepseek-coder-v2:16b-instruct-qat:
+          name: "deepseek-coder-v2:16b-instruct-qat"
+          max_tokens: 8192
+          context_window: 16384
+          description: "Code-specific, larger context"
+          enabled: false
+          
+    groq:
+      enabled: false  # Requires API key
+      api_key_env: "GROQ_API_KEY"
+      
+      models:
+        llama3-70b-8192:
+          name: "llama3-70b-8192"
+          max_tokens: 8192
+          description: "Large model via Groq"
+          
+    openai:
+      enabled: false  # Requires API key
+      api_key_env: "OPENAI_API_KEY"
+      
+      models:
+        gpt-4:
+          name: "gpt-4"
+          max_tokens: 8192
+          description: "OpenAI GPT-4"
+
+# Model Selection Strategy
+selection:
+  # Choose embedding model based on task type
+  embedding_strategy: "default"
+  
+  # Choose LLM model based on task complexity
+  llm_strategy: "default"
+  
+  # Fallback if primary model unavailable
+  fallback_enabled: true
+  
+# Caching
+cache:
+  enable_embedding_cache: true
+  cache_dir: "data/local_agent/cache"
+  cache_ttl_hours: 720  # 30 days
