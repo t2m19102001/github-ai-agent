@@ -11,8 +11,15 @@ Components:
     confidence: Confidence scoring
 """
 
-from src.local_agent.explainer.formatter import MarkdownFormatter
-from src.local_agent.explainer.citation import CitationLinker
+from src.local_agent.explainer.formatter import MarkdownFormatter, format_report
+from src.local_agent.explainer.citation import Citation, CitationLinker, link_chunks
 from src.local_agent.explainer.confidence import ConfidenceScorer
 
-__all__ = ["MarkdownFormatter", "CitationLinker", "ConfidenceScorer"]
+__all__ = [
+    "Citation",
+    "CitationLinker",
+    "MarkdownFormatter",
+    "ConfidenceScorer",
+    "link_chunks",
+    "format_report",
+]
