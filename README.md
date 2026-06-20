@@ -88,6 +88,26 @@ uvicorn src.web.main:app --host 127.0.0.1 --port 8000 --reload
 docker-compose -f docker-compose.dev.yml up --build
 ```
 
+### Web UI
+
+| Route | Mô tả |
+|---|---|
+| `/` | **Chat** kiểu Claude Code — streaming qua WebSocket (`/ws/chat`), model selector, mặc định mock (offline) |
+| `/issue` | Form phân tích GitHub issue (trang chủ cũ) |
+| `/dashboard` · `/logs-page` · `/image-page` | Dashboard, logs, phân tích ảnh |
+| `/docs` · `/health` · `/api/models` | API docs (Swagger) · health check · danh sách provider |
+
+**LLM provider cho chat** (`LLM_PROVIDER` trong `.env`, hoặc chọn ở model selector):
+
+| Provider | Cần gì | Ghi chú |
+|---|---|---|
+| `mock` | không | Mặc định an toàn, offline, trả lời giả lập (để demo UI) |
+| `groq` | `GROQ_API_KEY` (free tại [console.groq.com](https://console.groq.com)) | **Câu trả lời AI thật**, nhanh, model `llama-3.3-70b-versatile` |
+| `ollama` | `ollama serve` + model đã pull | AI thật, 100% local |
+| `failover` | (ưu tiên ollama → groq → mock) | Tự fallback khi provider lỗi |
+
+Để chat trả lời thật: đặt `LLM_PROVIDER=groq` + dán `GROQ_API_KEY=gsk_...` vào `.env`, rồi khởi động lại server.
+
 ---
 
 ## Contributing

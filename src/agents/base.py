@@ -97,6 +97,12 @@ class Agent(BaseAgent if BaseAgent else ABC):
     def __init__(self, name: str, description: str = ""):
         if BaseAgent:
             super().__init__(name=name, llm_provider=None)
+            # BaseAgent stores history on AgentContext, not on the agent, but
+            # this sync wrapper (and CodeChatAgent.think) expects a per-agent
+            # conversation_history list. Initialize it so both inheritance
+            # paths expose the same attributes.
+            self.description = description
+            self.conversation_history: List[Dict[str, str]] = []
         else:
             self.name = name
             self.description = description

@@ -13,14 +13,18 @@ from typing import List, Dict, Any, Optional
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
+from fastapi import (
+    FastAPI, HTTPException, Request, Depends, UploadFile, File, WebSocket
+)
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 import uvicorn
 import asyncio
+import json
 import tempfile
+import uuid
 
 # Import logging system
 from src.memory.log_manager import get_logs, get_log_stats, log_activity
@@ -36,7 +40,7 @@ from src.memory.memory_manager import MemoryManager
 from src.llm.provider import get_llm_provider
 from src.utils.logger import get_logger
 from src import __version__
-from src.core.config import validate_config
+from src.core.config import validate_config, LLM_PROVIDER
 from src.utils.embeddings import text_to_embedding
 
 logger = get_logger(__name__)
@@ -114,8 +118,113 @@ class WorkflowResponse(BaseModel):
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    """Home page with Web UI"""
+    """Home page: Claude Code-style chat interface."""
+    return templates.TemplateResponse("chat.html", {"request": request})
+
+
+@app.get("/issue", response_class=HTMLResponse)
+async def issue_page(request: Request):
+    """Legacy GitHub issue analysis form (previously served at /)."""
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/api/models")
+async def list_models():
+    """Return selectable providers for the model selector.
+
+    The default reflects LLM_PROVIDER from config/.env, so configuring Groq
+    makes the UI use it without any code change.
+    """
+    providers = ["mock", "groq", "ollama", "failover"]
+    default = (LLM_PROVIDER or "mock").lower()
+    if default not in providers:
+        providers.insert(0, default)
+    return {"models": providers, "default": default}
+
+
+def _generate_reply(llm, message: str, session_id: str) -> str:
+    """Produce an assistant reply, preferring the full CodeChatAgent.
+
+    Falls back to a direct provider call if the agent path raises (it relies on
+    RAG/memory internals that can be fragile in some environments), so the chat
+    socket always returns a response.
+    """
+    try:
+        agent = CodeChatAgent(llm_provider=llm)
+        reply = agent.chat(message, session_id=session_id)
+        if reply:
+            return reply if isinstance(reply, str) else str(reply)
+    except Exception as e:
+        logger.warning(f"agent.chat failed ({e}); falling back to direct call")
+
+    try:
+        messages = [
+            {"role": "system", "content": "Bạn là một AI Code Assistant hữu ích."},
+            {"role": "user", "content": message},
+        ]
+        result = llm.call(messages)
+        return result if isinstance(result, str) else str(result)
+    except Exception as e:
+        logger.error(f"direct provider call failed [{session_id[:8]}]: {e}")
+        return f"⚠️ Không tạo được phản hồi: {e}"
+
+
+@app.websocket("/ws/chat")
+async def chat_websocket(ws: WebSocket):
+    """Streaming chat over WebSocket, backed by CodeChatAgent (offline-capable).
+
+    Client sends: {"message": "...", "model": "mock"}
+    Server emits JSON events: session / thinking / start / chunk / end / error.
+    """
+    await ws.accept()
+    session_id = str(uuid.uuid4())
+    await ws.send_text(json.dumps({"type": "session", "session_id": session_id}))
+
+    try:
+        while True:
+            raw = await ws.receive_text()
+            try:
+                payload = json.loads(raw)
+                message = payload.get("message", "")
+                model = payload.get("model") or "mock"
+            except (ValueError, AttributeError):
+                message, model = raw, "mock"
+
+            message = (message or "").strip()
+            if not message:
+                await ws.send_text(json.dumps({
+                    "type": "error",
+                    "content": "Empty message",
+                }))
+                continue
+
+            # Resolve provider; fall back to mock so an unconfigured provider
+            # never breaks the socket.
+            try:
+                llm = get_llm_provider(model)
+            except Exception as e:
+                logger.warning(f"Provider '{model}' unavailable ({e}); using mock")
+                llm = get_llm_provider("mock")
+
+            await ws.send_text(json.dumps({
+                "type": "thinking",
+                "content": "Đang suy nghĩ...",
+            }))
+
+            text = _generate_reply(llm, message, session_id)
+            await ws.send_text(json.dumps({"type": "start"}))
+            chunk_size = 12
+            for i in range(0, len(text), chunk_size):
+                await ws.send_text(json.dumps({
+                    "type": "chunk",
+                    "content": text[i:i + chunk_size],
+                }))
+                await asyncio.sleep(0.01)
+            await ws.send_text(json.dumps({"type": "end"}))
+
+    except Exception as e:
+        # Includes WebSocketDisconnect; log at debug to avoid noise on normal close.
+        logger.info(f"chat websocket closed [{session_id[:8]}]: {e}")
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
