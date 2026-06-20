@@ -50,3 +50,6 @@ logs/
 # JS dependencies
 vscode-extension/node_modules/
 node_modules/
+
+# Claude Code local tooling (skills, settings)
+.claude/
