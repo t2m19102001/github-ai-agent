@@ -68,11 +68,23 @@ LLM layer (`src/llm/`) gồm `OllamaProvider`, `GroqProvider`, `FailoverProvider
 
 Quick smoke:
 
-```bash
-# FastAPI dev server
-uvicorn src.web.main:app --host 0.0.0.0 --port 8000 --reload
+Chạy ổn định trên localhost với defaults an toàn (mock LLM, SQLite — **không cần Postgres/Redis**):
 
-# Hoặc Docker
+```bash
+# 1. (tuỳ chọn) tạo .env localhost từ template
+cp .env.example .env   # mặc định đã có sẵn LLM_PROVIDER=mock, DATABASE_URL=sqlite
+
+# 2. Boot web surface bằng 1 lệnh (có pre-flight check venv + port)
+bash scripts/run_web.sh                       # http://127.0.0.1:8000
+HOST=0.0.0.0 PORT=9000 bash scripts/run_web.sh
+
+# Kiểm tra: http://127.0.0.1:8000/health · API docs: /docs
+```
+
+Hoặc chạy uvicorn / Docker trực tiếp:
+
+```bash
+uvicorn src.web.main:app --host 127.0.0.1 --port 8000 --reload
 docker-compose -f docker-compose.dev.yml up --build
 ```
 
