@@ -28,7 +28,6 @@ from src.local_agent.ingestion.embedder import DEFAULT_MODEL_NAME, Embedder
 
 if TYPE_CHECKING:
     import faiss
-    import numpy as np
 
 
 class RetrievalSource(str, Enum):

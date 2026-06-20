@@ -4,7 +4,7 @@ Filters Module.
 Purpose: Content filtering for safety.
 """
 
-from typing import List, Tuple, Optional
+from typing import Optional, Tuple
 
 
 class ContentFilter:
