@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub AI Agent — Chat</title>
+    <link rel="stylesheet" href="/static/chat.css">
+</head>
+
+<body>
+    <div class="app">
+        <header class="topbar">
+            <div class="brand">
+                <span class="dot"></span>
+                <span class="brand-name">GitHub AI Agent</span>
+            </div>
+            <div class="topbar-right">
+                <label class="model-label" for="modelSelect">Model</label>
+                <select id="modelSelect" class="model-select" title="Chọn model AI">
+                    <option value="mock">mock</option>
+                </select>
+                <span id="status" class="conn-status" title="Trạng thái kết nối">offline</span>
+                <a class="nav-link" href="/issue">Issue tool</a>
+            </div>
+        </header>
+
+        <main id="messages" class="messages">
+            <div class="welcome">
+                <h1>AI Code Assistant</h1>
+                <p>Hỏi về codebase, gỡ lỗi, hoặc nhờ giải thích. Phản hồi stream theo thời gian thực.</p>
+            </div>
+        </main>
+
+        <footer class="composer">
+            <div class="composer-inner">
+                <textarea id="input" class="input" rows="1"
+                    placeholder="Nhập tin nhắn... (Enter để gửi, Shift+Enter xuống dòng)"></textarea>
+                <button id="send" class="send-btn" title="Gửi">Gửi</button>
+            </div>
+            <div class="composer-hint">mock LLM · 100% local · không gọi mạng</div>
+        </footer>
+    </div>
+
+    <script>
+        const messagesEl = document.getElementById('messages');
+        const inputEl = document.getElementById('input');
+        const sendBtn = document.getElementById('send');
+        const statusEl = document.getElementById('status');
+        const modelSelect = document.getElementById('modelSelect');
+
+        let ws = null;
+        let currentAssistantEl = null;   // streaming target
+        let thinkingEl = null;
+
+        function setStatus(text, ok) {
+            statusEl.textContent = text;
+            statusEl.classList.toggle('ok', !!ok);
+        }
+
+        // --- Render helpers ----------------------------------------------------
+        function appendMessage(role, text) {
+            const wrap = document.createElement('div');
+            wrap.className = `msg msg-${role}`;
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            renderInto(bubble, text);
+            wrap.appendChild(bubble);
+            messagesEl.appendChild(wrap);
+            scrollToBottom();
+            return bubble;
+        }
+
+        // Minimal, safe rendering: split fenced code blocks, escape everything.
+        function renderInto(el, text) {
+            el.innerHTML = '';
+            const parts = String(text).split(/```/);
+            parts.forEach((part, i) => {
+                if (i % 2 === 1) {
+                    const pre = document.createElement('pre');
+                    const code = document.createElement('code');
+                    code.textContent = part.replace(/^\w*\n/, '');
+                    pre.appendChild(code);
+                    el.appendChild(pre);
+                } else if (part.length) {
+                    const span = document.createElement('span');
+                    span.className = 'text';
+                    span.textContent = part;
+                    el.appendChild(span);
+                }
+            });
+        }
+
+        function scrollToBottom() {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function showThinking() {
+            removeThinking();
+            thinkingEl = document.createElement('div');
+            thinkingEl.className = 'msg msg-assistant thinking';
+            thinkingEl.innerHTML =
+                '<div class="bubble"><span class="think-dots"><i></i><i></i><i></i></span>' +
+                '<span class="think-label">Đang suy nghĩ...</span></div>';
+            messagesEl.appendChild(thinkingEl);
+            scrollToBottom();
+        }
+        function removeThinking() {
+            if (thinkingEl) { thinkingEl.remove(); thinkingEl = null; }
+        }
+
+        // --- WebSocket ---------------------------------------------------------
+        function connect() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            ws = new WebSocket(`${proto}://${location.host}/ws/chat`);
+
+            ws.onopen = () => setStatus('connected', true);
+            ws.onclose = () => { setStatus('offline', false); setTimeout(connect, 1500); };
+            ws.onerror = () => setStatus('error', false);
+
+            ws.onmessage = (ev) => {
+                let data;
+                try { data = JSON.parse(ev.data); } catch { return; }
+
+                switch (data.type) {
+                    case 'session':
+                        break;
+                    case 'thinking':
+                        showThinking();
+                        break;
+                    case 'start':
+                        removeThinking();
+                        currentAssistantEl = appendMessage('assistant', '');
+                        currentAssistantEl._raw = '';
+                        break;
+                    case 'chunk':
+                        if (currentAssistantEl) {
+                            currentAssistantEl._raw += data.content;
+                            renderInto(currentAssistantEl, currentAssistantEl._raw);
+                            scrollToBottom();
+                        }
+                        break;
+                    case 'end':
+                        currentAssistantEl = null;
+                        setSending(false);
+                        break;
+                    case 'error':
+                        removeThinking();
+                        appendMessage('assistant', '⚠️ ' + (data.content || 'Lỗi'));
+                        setSending(false);
+                        break;
+                }
+            };
+        }
+
+        function setSending(sending) {
+            sendBtn.disabled = sending;
+            inputEl.disabled = sending;
+            if (!sending) inputEl.focus();
+        }
+
+        function send() {
+            const text = inputEl.value.trim();
+            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+            appendMessage('user', text);
+            ws.send(JSON.stringify({ message: text, model: modelSelect.value }));
+            inputEl.value = '';
+            autoGrow();
+            setSending(true);
+        }
+
+        // --- Input behaviour ---------------------------------------------------
+        function autoGrow() {
+            inputEl.style.height = 'auto';
+            inputEl.style.height = Math.min(inputEl.scrollHeight, 200) + 'px';
+        }
+        inputEl.addEventListener('input', autoGrow);
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+        });
+        sendBtn.addEventListener('click', send);
+
+        // --- Populate model selector from real backend list --------------------
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/models');
+                const data = await res.json();
+                if (Array.isArray(data.models) && data.models.length) {
+                    modelSelect.innerHTML = '';
+                    data.models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m; opt.textContent = m;
+                        modelSelect.appendChild(opt);
+                    });
+                    if (data.default) modelSelect.value = data.default;
+                }
+            } catch { /* keep default option */ }
+        }
+
+        loadModels();
+        connect();
+    </script>
+</body>
+
+</html>

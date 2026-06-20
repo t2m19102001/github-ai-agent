@@ -67,6 +67,42 @@ class LLMProvider(BaseLLMProvider):
         return {"name": self.name, "status": "active", "config": self.config}
 
 
-def get_llm_provider(provider_name: str = "mock", config: Dict[str, Any] = None) -> LLMProvider:
-    """Get LLM provider instance"""
-    return LLMProvider(provider_name, config)
+def get_llm_provider(provider_name: str = "mock", config: Dict[str, Any] = None):
+    """Get an LLM provider instance.
+
+    Routes a provider name to a concrete implementation:
+      - "mock" (default): offline echo provider, no network.
+      - "groq": real Groq cloud API (needs GROQ_API_KEY in env/.env).
+      - "ollama": real local Ollama (needs `ollama serve` + a pulled model).
+      - "failover": try Ollama first, then Groq, then mock.
+
+    Any unknown name or import/construction failure falls back to mock so the
+    caller never crashes on an unconfigured provider.
+    """
+    name = (provider_name or "mock").lower()
+
+    if name == "mock":
+        return LLMProvider("mock", config)
+
+    try:
+        if name == "groq":
+            from src.llm.groq import GroqProvider
+            return GroqProvider()
+        if name == "ollama":
+            from src.llm.ollama import OllamaProvider
+            return OllamaProvider()
+        if name == "failover":
+            from src.llm.failover import FailoverProvider
+            from src.llm.ollama import OllamaProvider
+            from src.llm.groq import GroqProvider
+            return FailoverProvider([
+                OllamaProvider(),
+                GroqProvider(),
+                LLMProvider("mock", config),
+            ])
+    except Exception as e:
+        logger.warning(f"Provider '{name}' init failed ({e}); using mock")
+        return LLMProvider("mock", config)
+
+    logger.warning(f"Unknown provider '{name}'; using mock")
+    return LLMProvider("mock", config)

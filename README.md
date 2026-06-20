@@ -68,13 +68,45 @@ LLM layer (`src/llm/`) gồm `OllamaProvider`, `GroqProvider`, `FailoverProvider
 
 Quick smoke:
 
-```bash
-# FastAPI dev server
-uvicorn src.web.main:app --host 0.0.0.0 --port 8000 --reload
+Chạy ổn định trên localhost với defaults an toàn (mock LLM, SQLite — **không cần Postgres/Redis**):
 
-# Hoặc Docker
+```bash
+# 1. (tuỳ chọn) tạo .env localhost từ template
+cp .env.example .env   # mặc định đã có sẵn LLM_PROVIDER=mock, DATABASE_URL=sqlite
+
+# 2. Boot web surface bằng 1 lệnh (có pre-flight check venv + port)
+bash scripts/run_web.sh                       # http://127.0.0.1:8000
+HOST=0.0.0.0 PORT=9000 bash scripts/run_web.sh
+
+# Kiểm tra: http://127.0.0.1:8000/health · API docs: /docs
+```
+
+Hoặc chạy uvicorn / Docker trực tiếp:
+
+```bash
+uvicorn src.web.main:app --host 127.0.0.1 --port 8000 --reload
 docker-compose -f docker-compose.dev.yml up --build
 ```
+
+### Web UI
+
+| Route | Mô tả |
+|---|---|
+| `/` | **Chat** kiểu Claude Code — streaming qua WebSocket (`/ws/chat`), model selector, mặc định mock (offline) |
+| `/issue` | Form phân tích GitHub issue (trang chủ cũ) |
+| `/dashboard` · `/logs-page` · `/image-page` | Dashboard, logs, phân tích ảnh |
+| `/docs` · `/health` · `/api/models` | API docs (Swagger) · health check · danh sách provider |
+
+**LLM provider cho chat** (`LLM_PROVIDER` trong `.env`, hoặc chọn ở model selector):
+
+| Provider | Cần gì | Ghi chú |
+|---|---|---|
+| `mock` | không | Mặc định an toàn, offline, trả lời giả lập (để demo UI) |
+| `groq` | `GROQ_API_KEY` (free tại [console.groq.com](https://console.groq.com)) | **Câu trả lời AI thật**, nhanh, model `llama-3.3-70b-versatile` |
+| `ollama` | `ollama serve` + model đã pull | AI thật, 100% local |
+| `failover` | (ưu tiên ollama → groq → mock) | Tự fallback khi provider lỗi |
+
+Để chat trả lời thật: đặt `LLM_PROVIDER=groq` + dán `GROQ_API_KEY=gsk_...` vào `.env`, rồi khởi động lại server.
 
 ---
 
