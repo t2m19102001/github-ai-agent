@@ -11,6 +11,24 @@ import pytest
 
 from src.local_agent import cli as cli_module
 from src.local_agent.core import AgentResponse, QueryConfig
+from src.local_agent.explainer.citation import Citation
+
+
+def _make_citation(rank: int = 1, **overrides) -> Citation:
+    base = dict(
+        chunk_id=f"c{rank}",
+        relative_path="src/auth.py",
+        file_path="/repo/src/auth.py",
+        name="login",
+        qualified_name="AuthService.login",
+        level="method",
+        start_line=42,
+        end_line=88,
+        score=0.123,
+        rank=rank,
+    )
+    base.update(overrides)
+    return Citation(**base)
 
 
 def _make_response(
@@ -20,6 +38,7 @@ def _make_response(
     warnings: list[str] | None = None,
     confidence: float = 0.75,
     latency_ms: int = 42,
+    citations: list[Citation] | None = None,
 ) -> AgentResponse:
     return AgentResponse(
         question=question,
@@ -32,6 +51,7 @@ def _make_response(
         latency_ms=latency_ms,
         timestamp=datetime(2026, 4, 25, 12, 0, 0, tzinfo=timezone.utc),
         warnings=warnings if warnings is not None else [],
+        citations=citations if citations is not None else [],
     )
 
 
@@ -233,6 +253,31 @@ def test_factory_receives_model_and_index_dir() -> None:
     assert code == 0
     assert captured["model_name"] == "llama3:70b"
     assert captured["index_dir"] == "/tmp/idx"
+
+
+# Bonus: human-mode lists citations when the response carries them.
+def test_human_mode_lists_citations() -> None:
+    citations = [
+        _make_citation(rank=1),
+        _make_citation(rank=2, chunk_id="c2", qualified_name="utils.add",
+                       relative_path="src/utils.py", start_line=3, end_line=9),
+    ]
+    agent = FakeAgent(response=_make_response(citations=citations))
+    code, stdout, _ = _run_query(["q"], agent=agent)
+    assert code == 0
+    assert "Citations:" in stdout
+    # Each citation rendered as a readable source pointer.
+    assert "AuthService.login — src/auth.py:42-88" in stdout
+    assert "utils.add — src/utils.py:3-9" in stdout
+
+
+# Bonus: human-mode notes the absence of citations rather than printing nothing.
+def test_human_mode_notes_when_no_citations() -> None:
+    agent = FakeAgent(response=_make_response(citations=[]))
+    code, stdout, _ = _run_query(["q"], agent=agent)
+    assert code == 0
+    assert "Citations:" in stdout
+    assert "no source chunks" in stdout.lower()
 
 
 # Bonus: invoking with no subcommand fails with non-zero exit.

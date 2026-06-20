@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Protocol
 
+from src.local_agent.explainer.citation import Citation, link_chunks
 from src.local_agent.retrieval.context_builder import ContextBuilder, ContextWindow
 from src.local_agent.retrieval.retriever import BasicRetriever, RetrievalResult
 
@@ -89,6 +90,7 @@ class AgentResponse:
     latency_ms: int
     timestamp: datetime
     warnings: list[str] = field(default_factory=list)
+    citations: list[Citation] = field(default_factory=list)
 
 
 class LocalAgent:
@@ -137,6 +139,7 @@ class LocalAgent:
             retrieval_results=retrieved,
             max_tokens=self.config.max_context_tokens,
         )
+        citations = link_chunks(context_window.chunks)
 
         user_prompt = _USER_PROMPT_TEMPLATE.format(
             question=question,
@@ -161,6 +164,7 @@ class LocalAgent:
                 confidence=0.0,
                 started=started,
                 warnings=warnings,
+                citations=citations,
             )
 
         confidence = _heuristic_confidence(
@@ -177,6 +181,7 @@ class LocalAgent:
             confidence=confidence,
             started=started,
             warnings=warnings,
+            citations=citations,
         )
 
     def _build_response(
@@ -190,6 +195,7 @@ class LocalAgent:
         confidence: float,
         started: float,
         warnings: list[str],
+        citations: list[Citation] | None = None,
     ) -> AgentResponse:
         latency_ms = max(1, int((time.perf_counter() - started) * 1000))
         return AgentResponse(
@@ -203,6 +209,7 @@ class LocalAgent:
             latency_ms=latency_ms,
             timestamp=datetime.now(timezone.utc),
             warnings=list(warnings),
+            citations=list(citations) if citations else [],
         )
 
 
