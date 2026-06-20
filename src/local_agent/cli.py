@@ -299,7 +299,13 @@ def _format_human(response: AgentResponse, *, verbose: bool) -> str:
         f"Confidence: {response.confidence:.2f}",
         f"Model: {response.model_name}",
         f"Latency: {response.latency_ms} ms",
+        "",
+        "Citations:",
     ]
+    if response.citations:
+        lines.extend(f"  - {c.to_text()}" for c in response.citations)
+    else:
+        lines.append("  (no source chunks were retrieved)")
 
     if verbose:
         lines.extend(
