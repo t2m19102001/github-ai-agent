@@ -170,7 +170,7 @@ class LlamaIndexRAG:
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
-                            if len(content.strip()) > 50:  # Skip very short files
+                            if content.strip():
                                 documents.append(f"File: {file_path.relative_to(directory)}\n\n{content}")
                     except Exception as e:
                         logger.warning(f"Could not read {file_path}: {e}")
@@ -202,7 +202,6 @@ class LlamaIndexRAG:
                 response = self._query_simple(question, top_k)
             
             query_time = time.time() - query_start
-            self.query_times.append(query_time)
             
             # Success metric: <0.8s retrieval time
             if query_time > 0.8:
@@ -217,6 +216,8 @@ class LlamaIndexRAG:
         except Exception as e:
             logger.error(f"RAG query failed: {e}")
             return f"Query failed: {str(e)}"
+        finally:
+            self.query_times.append(max(time.time() - query_start, 1e-9))
     
     def _query_llamaindex(self, question: str, top_k: int) -> str:
         """Query using LlamaIndex"""
@@ -263,7 +264,7 @@ class LlamaIndexRAG:
     
     def get_performance_metrics(self) -> Dict[str, Any]:
         """Get RAG performance metrics"""
-        if not self.query_times:
+        if not self.query_times and self.total_queries == 0:
             return {
                 "avg_query_time": 0,
                 "total_queries": 0,
@@ -272,7 +273,11 @@ class LlamaIndexRAG:
                 "meets_relevance_target": False
             }
         
-        avg_query_time = sum(self.query_times) / len(self.query_times)
+        avg_query_time = (
+            sum(self.query_times) / len(self.query_times)
+            if self.query_times
+            else 0
+        )
         relevance_rate = self.relevant_results / self.total_queries if self.total_queries > 0 else 0
         
         return {

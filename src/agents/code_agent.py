@@ -4,12 +4,9 @@ Code Chat Agent - Interactive AI code assistant
 Can read, analyze, modify code, and execute commands
 """
 
-import glob
-from pathlib import Path
 from typing import Optional, List
 from src.agents.base import Agent, LLMProvider
 from src.utils.logger import get_logger
-from src.core.config import PROJECT_ROOT, CODE_EXTENSIONS
 from src.config.settings import MAX_CONTEXT_TOKENS
 from src.tools.file_tools import FileReadTool, FileWriteTool, ListFilesTool
 from src.tools.codebase_rag import retrieve, get_context
@@ -33,13 +30,10 @@ class CodeChatAgent(Agent):
         self.llm = llm_provider
         self.session_id = str(uuid.uuid4())  # Unique session ID
         self.token_manager = TokenManager()
-        try:
-            files: List[str] = []
-            for ext in CODE_EXTENSIONS:
-                files.extend([str(p.relative_to(PROJECT_ROOT)) for p in PROJECT_ROOT.rglob(f"*{ext}")])
-            self.project_files = files
-        except Exception:
-            self.project_files = []
+        # Repository discovery is handled by the RAG/indexing layer. Scanning
+        # the full project (including virtualenvs) during app import made boot
+        # time and memory depend on unrelated files.
+        self.project_files: List[str] = []
         
         # Register tools
         self.register_tool(FileReadTool())

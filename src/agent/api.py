@@ -29,6 +29,8 @@ def _authorized(authorization: Optional[str]) -> bool:
 
 def _plugin_manager_from_env() -> PluginManager:
     enabled = [item.strip() for item in os.getenv("AGENT_PLUGINS", "").split(",") if item.strip()]
+    if not enabled:
+        enabled = ["auto_comment_on_issue", "auto_check_code_quality"]
     plugins = []
     if "auto_check_code_quality" in enabled:
         plugins.append(AutoCheckCodeQualityPlugin())
@@ -118,5 +120,9 @@ async def github_webhook(
     else:
         plugin_event = {"type": "unknown"}
 
-    plugin_outputs = _plugin_manager_from_env().run_plugins(plugin_event, {})
+    plugin_context = {
+        "issue": plugin_event,
+        "code_diff": payload.get("files") or [],
+    }
+    plugin_outputs = _plugin_manager_from_env().run_plugins(plugin_event, plugin_context)
     return {"status": "ok", "event": event_type, "plugins": plugin_outputs, "result": result}

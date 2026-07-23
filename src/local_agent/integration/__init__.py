@@ -29,6 +29,7 @@ from src.local_agent.integration.swe16_interface import (
     PlanResponse,
     PlanError,
 )
+from src.local_agent.integration.plan_builder import PlanRequestBuilder
 
 __all__ = [
     "ChangeType",
@@ -46,4 +47,5 @@ __all__ = [
     "LogEntry",
     "PlanResponse",
     "PlanError",
+    "PlanRequestBuilder",
 ]

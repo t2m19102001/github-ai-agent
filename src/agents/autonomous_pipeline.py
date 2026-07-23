@@ -19,6 +19,17 @@ from src.tools.autofix_tool import run_pytest
 logger = get_logger(__name__)
 
 
+def git_clone(repo_url: str, destination: str) -> bool:
+    """Clone a repository without a shell; extracted for deterministic testing."""
+    subprocess.run(
+        ["git", "clone", repo_url, destination],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return True
+
+
 class CodeAnalyzer:
     """Code analysis functionality"""
     
@@ -398,8 +409,7 @@ class AutonomousPipeline:
             # Clone repository using subprocess
             logger.info(f"Cloning repository to {temp_dir}")
             try:
-                subprocess.run(['git', 'clone', repo_url, temp_dir], 
-                             check=True, capture_output=True, text=True)
+                git_clone(repo_url, temp_dir)
                 return temp_dir
             except subprocess.CalledProcessError as e:
                 logger.error(f"Git clone failed: {e.stderr}")

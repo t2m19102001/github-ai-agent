@@ -20,10 +20,14 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Protocol
+from typing import TYPE_CHECKING
 
 from src.local_agent.explainer.citation import Citation, link_chunks
 from src.local_agent.retrieval.context_builder import ContextBuilder, ContextWindow
 from src.local_agent.retrieval.retriever import BasicRetriever, RetrievalResult
+
+if TYPE_CHECKING:
+    from src.local_agent.integration.swe16_interface import PlanRequest
 
 
 _NO_RESULTS_ANSWER = (
@@ -183,6 +187,13 @@ class LocalAgent:
             warnings=warnings,
             citations=citations,
         )
+
+    def plan(self, goal: str, max_files: int = 5) -> "PlanRequest":
+        """Build an approval-required SWE handoff without modifying files."""
+        from src.local_agent.integration.plan_builder import PlanRequestBuilder
+
+        results = self.retriever.retrieve(goal, k=max(self.config.top_k, max_files))
+        return PlanRequestBuilder().build(goal, results, max_files=max_files)
 
     def _build_response(
         self,

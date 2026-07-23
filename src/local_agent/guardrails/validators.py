@@ -84,7 +84,7 @@ class FileGuardrails:
         
         # Check read-only patterns
         for pattern in self.READ_ONLY_PATTERNS:
-            if fnmatch.fnmatch(path.name, pattern):
+            if fnmatch.fnmatch(path.name, pattern) or fnmatch.fnmatch(path.as_posix(), pattern):
                 return False, f"File matches read-only pattern: {pattern}"
         
         # Check if file is in approval-required list

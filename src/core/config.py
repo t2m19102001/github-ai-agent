@@ -63,7 +63,7 @@ HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "meta-llama/Llama-2-7b-chat-h
 HUGGINGFACE_TIMEOUT = int(os.getenv("HUGGINGFACE_TIMEOUT", "60"))
 
 # At least one LLM key required unless using local provider
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "mock").lower()
 
 # ============================================================================
 # Web Server Configuration

@@ -26,13 +26,30 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from src.local_agent.core import AgentResponse, LocalAgent, QueryConfig
+from src.local_agent.config import LocalAgentConfig
 
 
 VERSION = "0.1.0"
+_CONFIG_OVERRIDE = os.environ.get("LOCAL_AGENT_CONFIG")
+_FILE_CONFIG = LocalAgentConfig(_CONFIG_OVERRIDE) if _CONFIG_OVERRIDE else LocalAgentConfig()
 DEFAULT_INDEX_DIR = os.environ.get(
-    "LOCAL_AGENT_INDEX_PATH", "data/local_agent/indices/code"
+    "LOCAL_AGENT_INDEX_PATH",
+    str(Path(_FILE_CONFIG.get("paths.indices_dir", "data/local_agent/indices")) / "code"),
 )
-DEFAULT_MODEL = os.environ.get("LOCAL_AGENT_MODEL", "llama3:8b")
+# Embedding model (sentence-transformers) — used to build/search the FAISS index.
+# Must match between `index` and `query`; it is NOT the LLM.
+DEFAULT_EMBED_MODEL = os.environ.get(
+    "LOCAL_AGENT_EMBED_MODEL",
+    _FILE_CONFIG.get("indexing.embedding_model", "all-MiniLM-L6-v2"),
+)
+# LLM model (Ollama) — the "brain" that writes the answer. Independent of embeddings.
+DEFAULT_LLM_MODEL = os.environ.get(
+    "LOCAL_AGENT_MODEL", _FILE_CONFIG.get("llm.model", "llama3.2:3b")
+)
+# Ollama HTTP timeout (seconds). Generous default: slow CPU-only boxes need it.
+DEFAULT_LLM_TIMEOUT = int(
+    os.environ.get("LOCAL_AGENT_TIMEOUT", _FILE_CONFIG.get("llm.timeout_seconds", 600))
+)
 
 AgentFactory = Callable[..., LocalAgent]
 IndexPipeline = Callable[..., dict]
@@ -68,10 +85,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Output directory for the FAISS index (default: {DEFAULT_INDEX_DIR}).",
     )
     index_p.add_argument(
-        "--model",
+        "--embed-model",
+        dest="embed_model",
         type=str,
-        default=DEFAULT_MODEL,
-        help=f"Embedding model name (default: {DEFAULT_MODEL}).",
+        default=DEFAULT_EMBED_MODEL,
+        help=(
+            "Sentence-transformers embedding model "
+            f"(default: {DEFAULT_EMBED_MODEL}). Not the LLM."
+        ),
     )
     index_p.add_argument(
         "--batch-size",
@@ -99,7 +120,28 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     query_p.add_argument("-k", "--top-k", type=int, default=8)
     query_p.add_argument("--max-context-tokens", type=int, default=32000)
-    query_p.add_argument("--model", type=str, default=DEFAULT_MODEL)
+    query_p.add_argument(
+        "--embed-model",
+        dest="embed_model",
+        type=str,
+        default=DEFAULT_EMBED_MODEL,
+        help=(
+            "Embedding model for retrieval; must match the one used at index "
+            f"time (default: {DEFAULT_EMBED_MODEL})."
+        ),
+    )
+    query_p.add_argument(
+        "--model",
+        type=str,
+        default=DEFAULT_LLM_MODEL,
+        help=f"Ollama LLM model that writes the answer (default: {DEFAULT_LLM_MODEL}).",
+    )
+    query_p.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_LLM_TIMEOUT,
+        help=f"Ollama request timeout in seconds (default: {DEFAULT_LLM_TIMEOUT}).",
+    )
     query_p.add_argument("--index-dir", type=str, default=DEFAULT_INDEX_DIR)
     query_p.add_argument(
         "--json",
@@ -152,7 +194,7 @@ def _cmd_index(args, *, out, err, pipeline: IndexPipeline | None) -> int:
         stats = runner(
             repo_path=repo_path,
             index_dir=Path(args.index_dir).expanduser().resolve(),
-            model_name=args.model,
+            model_name=args.embed_model,
             batch_size=args.batch_size,
             verbose=args.verbose,
             log=out,
@@ -248,12 +290,20 @@ def _cmd_query(args, *, out, err, agent_factory: AgentFactory | None) -> int:
         max_context_tokens=args.max_context_tokens,
     )
     factory = agent_factory or _build_default_agent
+    # Only the default factory understands embed_model/timeout; injected test
+    # factories keep the simpler (config, index_dir, model_name) signature.
+    extra = (
+        {}
+        if agent_factory is not None
+        else {"embed_model": args.embed_model, "timeout": args.timeout}
+    )
 
     try:
         agent = factory(
             config=config,
             index_dir=args.index_dir,
             model_name=args.model,
+            **extra,
         )
     except Exception as error:
         err.write(f"Error: failed to initialize agent: {error}\n")
@@ -355,16 +405,19 @@ def _build_default_agent(
     config: QueryConfig,
     index_dir: str,
     model_name: str,
+    embed_model: str = DEFAULT_EMBED_MODEL,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
 ) -> LocalAgent:
     from src.local_agent.retrieval.context_builder import ContextBuilder
     from src.local_agent.retrieval.retriever import BasicRetriever
 
-    retriever = BasicRetriever(index_dir=index_dir, model_name=model_name)
+    # embed_model drives retrieval (must match the index); model_name is the LLM.
+    retriever = BasicRetriever(index_dir=index_dir, model_name=embed_model)
     context_builder = ContextBuilder(
         max_tokens=config.max_context_tokens,
         reserve_tokens=config.reserve_tokens,
     )
-    llm_client = _OllamaAdapter(model_name=model_name)
+    llm_client = _OllamaAdapter(model_name=model_name, timeout=timeout)
     return LocalAgent(
         retriever=retriever,
         context_builder=context_builder,
@@ -376,8 +429,9 @@ def _build_default_agent(
 class _OllamaAdapter:
     """Translate LLMClientProtocol(generate) → OllamaProvider(call(messages))."""
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, timeout: int = DEFAULT_LLM_TIMEOUT) -> None:
         self.model_name = model_name
+        self.timeout = timeout
         self._provider = None
 
     def _get_provider(self):
@@ -399,7 +453,12 @@ class _OllamaAdapter:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        result = provider.call(messages, temperature=temperature, max_tokens=max_tokens)
+        result = provider.call(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=self.timeout,
+        )
         if result is None:
             raise RuntimeError("Ollama returned no response (connection or timeout error)")
         return result

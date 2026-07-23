@@ -117,7 +117,7 @@ class GitTools:
                     hash=commit_hash,
                     author=author,
                     message=message,
-                    date=datetime.fromisoformat(date_str.strip()),
+                    date=datetime.strptime(date_str.strip(), "%Y-%m-%d %H:%M:%S %z"),
                 )
             )
         return commits

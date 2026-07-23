@@ -264,11 +264,16 @@ class AgentManager:
             "collaborative_task": ["github_issue", "code", "documentation"]
         }
         
-        # Get agents for task type
-        agents_for_task = task_agent_mapping.get(task.type, ["documentation"])
+        # Get agents for task type. Deployments may register aliases such as
+        # ``github_agent``/``doc_agent`` instead of canonical keys, so fall
+        # back to capability-based routing across the registry.
+        agents_for_task = task_agent_mapping.get(task.type, list(self.agents))
+        candidates = [name for name in agents_for_task if name in self.agents]
+        if not candidates:
+            candidates = list(self.agents)
         
         # Filter by available agents and capabilities
-        for agent_name in agents_for_task:
+        for agent_name in candidates:
             if agent_name in self.agents:
                 if self._agent_can_handle_task(self.agents[agent_name], task):
                     selected_agents.append(agent_name)
@@ -281,11 +286,16 @@ class AgentManager:
     def _agent_can_handle_task(self, agent: BaseAgent, task: Task) -> bool:
         """Check if agent can handle the task"""
         agent_name = agent.name.lower()
+
+        if task.type == "collaborative_task":
+            return True
         
         # Check based on task type and agent capabilities
-        if task.type == "github_issue" and "issue" in agent_name:
+        if task.type == "github_issue" and ("issue" in agent_name or "github" in agent_name):
             return True
-        elif task.type == "github_issue_analysis" and ("issue" in agent_name or "doc" in agent_name):
+        elif task.type == "github_issue_analysis" and (
+            "issue" in agent_name or "github" in agent_name or "doc" in agent_name
+        ):
             return True
         elif task.type == "code_analysis" and "code" in agent_name:
             return True

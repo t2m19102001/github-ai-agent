@@ -19,6 +19,15 @@ except ImportError:
 logger = get_logger(__name__)
 
 
+def _json_default(value: Any) -> str:
+    """Serialize temporal values used by task and agent dataclasses."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if hasattr(value, "value"):
+        return str(value.value)
+    return str(value)
+
+
 @dataclass
 class MemoryEntry:
     """Memory entry structure"""
@@ -162,10 +171,10 @@ class MemoryManager:
                 (id, key, value, type, timestamp, expires_at, metadata, importance)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                memory_id, key, json.dumps(value), memory_type,
+                memory_id, key, json.dumps(value, default=_json_default), memory_type,
                 datetime.now().isoformat(),
                 expires_at.isoformat() if expires_at else None,
-                json.dumps(metadata or {}), importance
+                json.dumps(metadata or {}, default=_json_default), importance
             ))
             
             self.conn.commit()

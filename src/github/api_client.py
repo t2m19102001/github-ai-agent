@@ -111,14 +111,20 @@ class GitHubAPIClient:
                 logger.warning("No GitHub authentication provided; using unauthenticated client")
                 self.client = Github(None)
                 
-            # Test connection
-            if hasattr(self.client, "get_user"):
-                self.client.get_user().login
-                logger.info("GitHub API connection successful")
-            
         except Exception as e:
             logger.error(f"Failed to initialize GitHub client: {e}")
             raise
+
+    def verify_connection(self) -> bool:
+        """Perform an explicit network readiness check.
+
+        Construction stays side-effect free so imports, tests, and offline tools
+        never contact GitHub unexpectedly.
+        """
+        if self.client is None:
+            return False
+        self.client.get_user().login
+        return True
     
     def _check_rate_limit(self):
         """Check and update rate limit information"""

@@ -12,7 +12,7 @@ from src.core.config import LOG_LEVEL, LOG_FORMAT, LOG_FILE, DEBUG
 
 def setup_logging():
     """Setup centralized logging for the application"""
-    
+
     # Create logs directory
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     
@@ -20,24 +20,22 @@ def setup_logging():
     root_logger = logging.getLogger()
     root_logger.setLevel(LOG_LEVEL)
     
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(LOG_LEVEL)
-    console_formatter = logging.Formatter(LOG_FORMAT)
-    console_handler.setFormatter(console_formatter)
-    
-    # File handler
-    file_handler = logging.handlers.RotatingFileHandler(
-        LOG_FILE,
-        maxBytes=10 * 1024 * 1024,  # 10MB
-        backupCount=5
-    )
-    file_handler.setLevel(LOG_LEVEL)
-    file_formatter = logging.Formatter(LOG_FORMAT)
-    file_handler.setFormatter(file_formatter)
-    
-    # Add handlers
+    # Only construct handlers when they will be attached. Creating a file
+    # handler before this check leaks an open descriptor when a host such as
+    # pytest has already configured root logging.
     if not root_logger.handlers:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(LOG_LEVEL)
+        console_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+
+        file_handler = logging.handlers.RotatingFileHandler(
+            LOG_FILE,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+        )
+        file_handler.setLevel(LOG_LEVEL)
+        file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+
         root_logger.addHandler(console_handler)
         root_logger.addHandler(file_handler)
     

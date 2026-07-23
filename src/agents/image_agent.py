@@ -5,6 +5,7 @@ Multi-modal agent for processing images, diagrams, and screenshots
 """
 
 import os
+import shutil
 import numpy as np
 from PIL import Image
 import io
@@ -24,9 +25,12 @@ try:
 except ImportError:
     TESSERACT_AVAILABLE = False
 
+TESSERACT_READY = bool(TESSERACT_AVAILABLE and shutil.which("tesseract"))
+
 from src.agents.base_agent import BaseAgent
 from src.rag.vector_store import VectorStore
 from src.utils.logger import get_logger
+from src.utils.embeddings import text_to_embedding
 
 logger = get_logger(__name__)
 
@@ -80,20 +84,6 @@ class ImageAgent:
             # Extract text using OCR
             extracted_text = self._extract_text_ocr(image)
             
-            # Check if OCR failed due to missing Tesseract
-            if not extracted_text and not TESSERACT_AVAILABLE:
-                return {
-                    "agent": self.name,
-                    "success": True,
-                    "extracted_text": "",
-                    "diagram_info": "OCR not available - Tesseract not installed",
-                    "structural_elements": [],
-                    "error_messages": [],
-                    "confidence_score": 0.0,
-                    "related_docs": [],
-                    "warning": "OCR requires Tesseract. Install with: brew install tesseract"
-                }
-            
             # Analyze image structure
             structural_analysis = self._analyze_image_structure(image)
             
@@ -123,6 +113,8 @@ class ImageAgent:
                     "channels": len(image.shape) if hasattr(image, 'shape') and len(image.shape) == 3 else 1
                 }
             }
+            if not TESSERACT_READY:
+                result["warning"] = "OCR requires the Tesseract executable"
             
             logger.info(f"Image analysis completed with confidence: {confidence:.2f}")
             return result
@@ -210,8 +202,15 @@ class ImageAgent:
             # Edge detection
             edges = cv2.Canny(gray, self.canny_threshold1, self.canny_threshold2)
             
-            # Find contours (structural elements)
-            contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            # Use a binary foreground mask for closed shapes. Canny edges are
+            # ideal for line detection but thin connected arrows can collapse
+            # rectangle contour areas to nearly zero.
+            _, foreground = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+            contours, _ = cv2.findContours(
+                foreground,
+                cv2.RETR_TREE,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
             
             # Analyze contours
             elements = []
@@ -242,8 +241,10 @@ class ImageAgent:
             return {
                 "summary": summary,
                 "elements": elements,
-                "connections": [{"start": [int(x1), int(y1)], "end": [int(x2), int(y2)]} 
-                              for x1, y1, x2, y2 in lines] if lines is not None else []
+                "connections": [
+                    {"start": [int(x1), int(y1)], "end": [int(x2), int(y2)]}
+                    for x1, y1, x2, y2 in lines.reshape(-1, 4)
+                ] if lines is not None else []
             }
             
         except Exception as e:
@@ -304,9 +305,8 @@ class ImageAgent:
     def _search_related_docs(self, text: str) -> List[Any]:
         """Search for related documents using RAG"""
         try:
-            # Generate simple embedding for demo
-            # In production, use proper embedding model
-            embedding = np.random.rand(128)
+            # Deterministic fallback embedding shared with the Web RAG API.
+            embedding = np.asarray(text_to_embedding(text, 128), dtype=np.float32)
             
             # Search in vector store
             results = self.rag_store.search(embedding, k=3)

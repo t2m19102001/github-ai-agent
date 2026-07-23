@@ -103,7 +103,11 @@ class TestWebhookProcessor:
         """Test successful webhook processing"""
         # Mock request
         mock_request = Mock(spec=Request)
-        payload_data = {"action": "opened", "issue": {"number": 123}}
+        payload_data = {
+            "action": "opened",
+            "issue": {"number": 123},
+            "repository": {"clone_url": "https://github.com/test/repo.git"},
+        }
         payload_bytes = json.dumps(payload_data).encode('utf-8')
         
         # Generate valid signature

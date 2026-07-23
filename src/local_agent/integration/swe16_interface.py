@@ -8,7 +8,7 @@ Contract:
     PlanRequest (Local Agent → SWE-1.6) → PlanResponse (SWE-1.6 → Local Agent)
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Dict, Any, Optional, Literal
 from enum import Enum
 from datetime import datetime
@@ -37,11 +37,11 @@ class ValidationStep(BaseModel):
     command: Optional[str] = None
     expected_exit_code: int = 0
     
-    @validator('command')
-    def validate_command(cls, v, values):
-        if values['type'] == ValidationType.TEST_RUN and not v:
+    @model_validator(mode="after")
+    def validate_command(self):
+        if self.type == ValidationType.TEST_RUN and not self.command:
             raise ValueError("Test run validation requires a command")
-        return v
+        return self
 
 
 class FileLocation(BaseModel):
@@ -49,11 +49,11 @@ class FileLocation(BaseModel):
     start_line: int = Field(..., ge=1, description="1-indexed start line")
     end_line: int = Field(..., ge=1, description="1-indexed end line")
     
-    @validator('end_line')
-    def end_after_start(cls, v, values):
-        if v < values['start_line']:
+    @model_validator(mode="after")
+    def end_after_start(self):
+        if self.end_line < self.start_line:
             raise ValueError("end_line must be >= start_line")
-        return v
+        return self
 
 
 class RetrievedChunk(BaseModel):
@@ -74,11 +74,13 @@ class FileChange(BaseModel):
     location: Optional[FileLocation] = None
     dependencies: List[int] = Field(default_factory=list)
     
-    @validator('suggested_code')
-    def code_required_for_modify(cls, v, values):
-        if values.get('change_type') in [ChangeType.CREATE, ChangeType.MODIFY] and not v:
-            raise ValueError("suggested_code required for create/modify")
-        return v
+    @model_validator(mode="after")
+    def code_required_for_create(self):
+        # A planning handoff may identify a modification without fabricating
+        # code. Creation still requires concrete content.
+        if self.change_type == ChangeType.CREATE and not self.suggested_code:
+            raise ValueError("suggested_code required for create")
+        return self
 
 
 class PlanConstraints(BaseModel):
@@ -92,23 +94,24 @@ class PlanConstraints(BaseModel):
 
 class PlanRequest(BaseModel):
     """Request from Local Agent to SWE-1.6 (or other execution agent)."""
-    version: str = Field(default="1.0", const=True)
+    version: Literal["1.0"] = "1.0"
     request_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     
     goal: str = Field(..., min_length=10, max_length=1000)
     context: Dict[str, Any] = Field(..., description="Repository context")
     retrieved_chunks: List[RetrievedChunk] = Field(default_factory=list)
-    changes: List[FileChange] = Field(..., min_items=1)
+    changes: List[FileChange] = Field(..., min_length=1)
     validation_steps: List[ValidationStep] = Field(default_factory=list)
     constraints: PlanConstraints = Field(default_factory=PlanConstraints)
     
-    @validator('changes')
-    def validate_change_count(cls, v, values):
-        constraints = values.get('constraints', PlanConstraints())
-        if len(v) > constraints.max_files:
-            raise ValueError(f"Too many files: {len(v)} > {constraints.max_files}")
-        return v
+    @model_validator(mode="after")
+    def validate_change_count(self):
+        if len(self.changes) > self.constraints.max_files:
+            raise ValueError(
+                f"Too many files: {len(self.changes)} > {self.constraints.max_files}"
+            )
+        return self
 
 
 class ChangeStatus(str, Enum):
@@ -155,7 +158,7 @@ class LogEntry(BaseModel):
 
 class PlanResponse(BaseModel):
     """Response from SWE-1.6 back to Local Agent."""
-    version: str = Field(default="1.0", const=True)
+    version: Literal["1.0"] = "1.0"
     request_id: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     

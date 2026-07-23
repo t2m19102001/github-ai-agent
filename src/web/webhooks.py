@@ -145,7 +145,9 @@ class WebhookProcessor:
                 "result": result
             }
             
-        except HTTPException:
+        except HTTPException as error:
+            error_type = f"HTTP_{error.status_code}"
+            self.error_counts[error_type] = self.error_counts.get(error_type, 0) + 1
             raise
         except Exception as e:
             # Record error

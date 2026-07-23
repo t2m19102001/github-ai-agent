@@ -6,8 +6,7 @@ Input: Query string
 Output: Ranked list of chunks with relevance scores
 
 Components:
-    retriever: Hybrid search (dense + sparse)
-    ranker: Result ranking (RRF)
+    retriever: Dense search with stable rank-preserving deduplication
     context_builder: Context assembly for LLM
 """
 
@@ -16,7 +15,6 @@ from src.local_agent.retrieval.retriever import (
     RetrievalResult,
     RetrievalSource,
 )
-from src.local_agent.retrieval.ranker import Ranker
 from src.local_agent.retrieval.context_builder import (
     ContextBuilder,
     ContextMetadata,
@@ -27,7 +25,6 @@ __all__ = [
     "BasicRetriever",
     "RetrievalResult",
     "RetrievalSource",
-    "Ranker",
     "ContextBuilder",
     "ContextMetadata",
     "ContextWindow",
