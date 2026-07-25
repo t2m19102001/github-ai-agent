@@ -64,7 +64,7 @@ LLM chủ động đọc thêm (read_file) khi context chưa đủ.
 | `core.py` (RAG) | ✅ Xong | `LocalAgent.query` chạy end-to-end |
 | `cli.py` | ✅ Xong | `index` / `query`; đã tách `--embed-model` vs `--model` + `--timeout` |
 | `tools/` + `agent_loop.py` | ✅ MỚI | tool-calling loop + tool `read_file` (read-only, chặn traversal) |
-| `memory/session.py` | 🟡 Một phần | in-memory session/history; **chưa persist** (đã xóa `storage.py`) |
+| `memory/` | ✅ Persist | `storage.py` (SQLite) lưu turns; `agent` CLI có `--session` nhớ multi-turn |
 | `guardrails/validators.py` | 🟡 Chưa wire | code thật nhưng **chưa gắn** vào core/loop |
 | `planner/` + `integration/` | 🟡 Có wire | `LocalAgent.plan()` build PlanRequest (handoff SWE), chưa dùng thực tế |
 
@@ -102,10 +102,11 @@ python -m src.local_agent.cli agent "câu hỏi cần đọc file/git"
 ```
 *Lý do:* biến loop từ module thành tính năng dùng được từ terminal.
 
-### Bước C — Giai đoạn 2: Memory / multi-turn
-- Khôi phục persistence cho `memory/` (SQLite) hoặc file JSON.
-- Cho agent nhớ hội thoại nhiều lượt.
-*Lý do:* học state management — cột trụ thứ 2 của một agent.
+### Bước C — Giai đoạn 2: Memory / multi-turn ✅ XONG
+- `memory/storage.py` (SQLite): bảng `sessions` + `turns`, lưu/nạp hội thoại.
+- `ToolCallingAgent.run(question, history)`: nạp lượt trước vào prompt.
+- CLI: `agent --session <id>` nhớ qua nhiều lần chạy (`--session-db`,
+  `--history-turns`).
 
 ### Bước D — Guardrails wiring
 Gắn `guardrails/validators.py` vào output của loop/planner (chặn câu trả lời

@@ -21,7 +21,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -188,6 +188,24 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=4,
         help="Maximum tool-calling turns before stopping (default: 4).",
+    )
+    agent_p.add_argument(
+        "--session",
+        type=str,
+        default=None,
+        help="Session id to remember across runs (enables multi-turn memory).",
+    )
+    agent_p.add_argument(
+        "--session-db",
+        type=str,
+        default="data/local_agent/sessions.db",
+        help="SQLite file storing session history.",
+    )
+    agent_p.add_argument(
+        "--history-turns",
+        type=int,
+        default=6,
+        help="How many recent turns to feed back as context (default: 6).",
     )
     agent_p.add_argument("-v", "--verbose", action="store_true")
 
@@ -392,8 +410,11 @@ def _cmd_agent(args, *, out, err) -> int:
     registry = build_default_registry(repo_root)
     agent = ToolCallingAgent(llm, registry, max_iters=args.max_iters)
 
+    # Load prior turns for this session, if one was requested.
+    store, history = _load_session(args)
+
     try:
-        result = agent.run(args.question)
+        result = agent.run(args.question, history=history)
     except ValueError as error:
         err.write(f"Error: {error}\n")
         return 2
@@ -413,9 +434,34 @@ def _cmd_agent(args, *, out, err) -> int:
             out.write(f"  {i}. {step.kind}: {step.detail[:60]}{snippet}\n")
         out.write(f"  (stopped: {result.stopped_reason})\n\n")
 
+    # Persist this turn so the next `--session <same-id>` run remembers it.
+    if store is not None and args.session:
+        _save_turn(store, args.session, args.question, result.answer)
+
     out.write("Answer:\n")
     out.write(f"  {result.answer}\n")
     return 0
+
+
+def _load_session(args):
+    """Return (store, history). Both are None/empty when no --session given."""
+    if not args.session:
+        return None, None
+    from src.local_agent.memory.storage import SessionStore
+
+    store = SessionStore(args.session_db)
+    turns = store.load_turns(args.session, limit=args.history_turns)
+    history = [(t.role, t.content) for t in turns]
+    return store, history
+
+
+def _save_turn(store, session_id: str, question: str, answer: str) -> None:
+    from src.local_agent.memory.storage import Turn
+
+    now = datetime.now(timezone.utc).isoformat()
+    store.ensure_session(session_id, now=now)
+    store.append_turn(session_id, Turn(role="user", content=question), now=now)
+    store.append_turn(session_id, Turn(role="agent", content=answer), now=now)
 
 
 # ---------------------------------------------------------------------------

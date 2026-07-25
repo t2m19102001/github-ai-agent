@@ -85,13 +85,24 @@ class ToolCallingAgent:
         self.registry = registry
         self.max_iters = max_iters
 
-    def run(self, question: str) -> LoopResult:
+    def run(
+        self,
+        question: str,
+        history: list[tuple[str, str]] | None = None,
+    ) -> LoopResult:
+        """Answer ``question``, optionally aware of prior conversation ``history``.
+
+        ``history`` is a list of ``(role, content)`` turns from earlier in the
+        session ("user"/"agent"). Prepending it lets a follow-up like "and what
+        about the other file?" resolve against what was already discussed —
+        this is what makes the agent multi-turn instead of stateless.
+        """
         if not isinstance(question, str) or not question.strip():
             raise ValueError("question must be a non-empty string")
 
         system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(menu=self.registry.render_menu())
         # The transcript is the agent's growing short-term memory for this task.
-        transcript = f"Question: {question}\n"
+        transcript = _render_history(history) + f"Question: {question}\n"
         steps: list[LoopStep] = []
         # Remember every (tool, args) already run so a small model that keeps
         # asking for the same read cannot spin — we short-circuit the repeat and
@@ -165,6 +176,18 @@ class ToolCallingAgent:
         if not isinstance(args, dict):
             return ToolResult.failure(f"args for {name!r} must be an object")
         return tool.run(args)
+
+
+def _render_history(history: list[tuple[str, str]] | None) -> str:
+    """Format prior turns as a short 'Previous conversation' preamble."""
+    if not history:
+        return ""
+    lines = ["Previous conversation:"]
+    for role, content in history:
+        # Trim long answers so old turns don't dominate the context window.
+        snippet = content if len(content) <= 300 else content[:300] + "..."
+        lines.append(f"{role}: {snippet}")
+    return "\n".join(lines) + "\n\n"
 
 
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)

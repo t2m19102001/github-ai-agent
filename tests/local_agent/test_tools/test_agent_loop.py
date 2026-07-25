@@ -164,3 +164,20 @@ def test_run_rejects_empty_question(repo: Path) -> None:
 def test_tool_result_helpers() -> None:
     assert ToolResult.success("x").ok
     assert not ToolResult.failure("y").ok
+
+
+def test_loop_injects_history_into_prompt(repo: Path) -> None:
+    llm = _ScriptedLLM(['{"final": "yes"}'])
+    history = [("user", "what is X?"), ("agent", "X is the answer")]
+    result = ToolCallingAgent(llm, _registry(repo)).run("and Y?", history=history)
+    assert result.answer == "yes"
+    prompt = llm.prompts[0]
+    assert "Previous conversation:" in prompt
+    assert "what is X?" in prompt
+    assert "X is the answer" in prompt
+
+
+def test_loop_without_history_has_no_preamble(repo: Path) -> None:
+    llm = _ScriptedLLM(['{"final": "ok"}'])
+    ToolCallingAgent(llm, _registry(repo)).run("q")
+    assert "Previous conversation:" not in llm.prompts[0]

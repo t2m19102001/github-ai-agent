@@ -71,3 +71,46 @@ def test_agent_rejects_bad_repo_root(monkeypatch, tmp_path: Path) -> None:
 def test_agent_empty_question_exits_two(monkeypatch, repo: Path) -> None:
     code, _, err = _run(["agent", "   "], monkeypatch, repo)
     assert code == 2
+
+
+class _EchoHistoryLLM:
+    """Final answer echoes whether prior history was present in the prompt."""
+
+    model_name = "echo"
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def generate(self, system_prompt, user_prompt, max_tokens=512, temperature=0.0):
+        seen = "MEMORY" if "Previous conversation:" in user_prompt else "FRESH"
+        return f'{{"final": "{seen}"}}'
+
+
+def test_agent_session_remembers_across_runs(monkeypatch, tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "a.py").write_text("x = 1\n", encoding="utf-8")
+    db = tmp_path / "sessions.db"
+    monkeypatch.setattr(cli_module, "_OllamaAdapter", _EchoHistoryLLM)
+
+    def run(question: str):
+        out, err = io.StringIO(), io.StringIO()
+        code = cli_module.main(
+            [
+                "agent", question,
+                "--repo-root", str(repo),
+                "--session", "sess-1",
+                "--session-db", str(db),
+            ],
+            stdout=out,
+            stderr=err,
+        )
+        return code, out.getvalue()
+
+    code1, out1 = run("first question")
+    assert code1 == 0
+    assert "FRESH" in out1  # nothing remembered yet
+
+    code2, out2 = run("second question")
+    assert code2 == 0
+    assert "MEMORY" in out2  # the first turn was loaded from the DB
