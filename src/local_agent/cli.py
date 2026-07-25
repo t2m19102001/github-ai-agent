@@ -207,6 +207,19 @@ def _build_parser() -> argparse.ArgumentParser:
         default=6,
         help="How many recent turns to feed back as context (default: 6).",
     )
+    agent_p.add_argument(
+        "--index-dir",
+        type=str,
+        default=None,
+        help="FAISS index dir. If given, enables the RAG-backed search_code tool.",
+    )
+    agent_p.add_argument(
+        "--embed-model",
+        dest="embed_model",
+        type=str,
+        default=DEFAULT_EMBED_MODEL,
+        help=f"Embedding model for search_code (default: {DEFAULT_EMBED_MODEL}).",
+    )
     agent_p.add_argument("-v", "--verbose", action="store_true")
 
     return parser
@@ -407,7 +420,12 @@ def _cmd_agent(args, *, out, err) -> int:
         return 2
 
     llm = _OllamaAdapter(model_name=args.model, timeout=args.timeout)
-    registry = build_default_registry(repo_root)
+    # Enable the RAG-backed search_code tool only when an index dir is given.
+    registry = build_default_registry(
+        repo_root,
+        index_dir=args.index_dir,
+        embed_model=args.embed_model if args.index_dir else None,
+    )
     agent = ToolCallingAgent(llm, registry, max_iters=args.max_iters)
 
     # Load prior turns for this session, if one was requested.

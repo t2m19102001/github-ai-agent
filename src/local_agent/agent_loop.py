@@ -247,17 +247,28 @@ def _parse_decision(raw: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def build_default_registry(repo_root: Path | str) -> ToolRegistry:
+def build_default_registry(
+    repo_root: Path | str,
+    *,
+    index_dir: Path | str | None = None,
+    embed_model: str | None = None,
+) -> ToolRegistry:
     """Registry with every read-only tool wired to ``repo_root``.
 
     Central place the CLI (and any caller) uses so the tool set stays
-    consistent everywhere.
+    consistent everywhere. When ``index_dir`` + ``embed_model`` are given, the
+    RAG-backed ``search_code`` tool is added too — this is what lets the agent
+    combine semantic search with direct file reads (roadmap step F).
     """
     registry = ToolRegistry()
     registry.register(ListFilesTool(repo_root))
     registry.register(FileReaderTool(repo_root))
     registry.register(CodeQueryTool(repo_root))
     registry.register(GitReaderTool(repo_root))
+    if index_dir is not None and embed_model is not None:
+        from src.local_agent.tools.search_code import SearchCodeTool
+
+        registry.register(SearchCodeTool(index_dir=index_dir, model_name=embed_model))
     return registry
 
 

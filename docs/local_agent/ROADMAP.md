@@ -59,7 +59,7 @@ LLM chủ động đọc thêm (read_file) khi context chưa đủ.
 |---|---|---|
 | `ingestion/` | ✅ Xong | crawl → parse → symbols → chunk → embed (sentence-transformers) |
 | `indexing/` | ✅ Xong | FAISS IndexFlatL2 + metadata sidecar |
-| `retrieval/` | ✅ Xong | dense retrieval + context_builder + ranker |
+| `retrieval/` | ✅ Hybrid | dense (FAISS) + sparse (`sparse.py` BM25) fused RRF (`hybrid.py`) + context_builder |
 | `explainer/` | ✅ Citation | citation + formatter hoạt động; confidence là heuristic đơn giản |
 | `core.py` (RAG) | ✅ Xong | `LocalAgent.query` chạy end-to-end |
 | `cli.py` | ✅ Xong | `index` / `query`; đã tách `--embed-model` vs `--model` + `--timeout` |
@@ -118,15 +118,20 @@ python -m src.local_agent.cli agent "câu hỏi cần đọc file/git"
 - `validators.py` (FileGuardrails) giữ nguyên cho tương lai (khi agent có
   thể ghi/suggest file).
 
-### Bước E — Hybrid retrieval (tùy chọn, nâng cao)
-Thêm BM25 (sparse) vào retrieval (hiện chỉ dense) như config đã khai báo.
-*Lý do:* cải thiện chất lượng tìm kiếm — nơi 90% chất lượng agent nằm ở đó, và
-KHÔNG cần GPU.
+### Bước E — Hybrid retrieval ✅ XONG
+- `retrieval/sparse.py`: BM25 thuần Python (không thêm dependency) — keyword
+  ranking bù cho dense.
+- `retrieval/hybrid.py`: `HybridRetriever` gộp dense + BM25 bằng Reciprocal
+  Rank Fusion (RRF) — fuse theo rank, không cần chuẩn hóa score. Cùng
+  interface `retrieve(query, k)` nên drop-in thay BasicRetriever.
 
-### Bước F — Gộp RAG + tool-calling (tầm nhìn)
-Cho `ToolCallingAgent` truy cập cả retriever (như một "tool" search) để agent tự
-chọn giữa "tìm trong index" và "đọc nguyên file". Đây là kiến trúc agent trưởng
-thành.
+### Bước F — Gộp RAG + tool-calling ✅ XONG
+- `tools/search_code.py`: `SearchCodeTool` bọc HybridRetriever thành 1 tool.
+  Agent tự chọn: `search_code` (tìm ngữ nghĩa) vs `read_file` (đọc file).
+- `build_default_registry(repo_root, index_dir=, embed_model=)`: thêm
+  search_code khi có index. CLI `agent --index-dir <path>` bật nó.
+- Đây là agent trưởng thành: RAG không còn là bước cố định mà là 1 công cụ
+  agent chủ động dùng.
 
 ---
 
