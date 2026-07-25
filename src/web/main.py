@@ -25,6 +25,7 @@ import asyncio
 import json
 import tempfile
 import uuid
+from dataclasses import dataclass
 
 # Import logging system
 from src.memory.log_manager import get_logs, get_log_stats, log_activity
@@ -40,8 +41,17 @@ from src.memory.memory_manager import MemoryManager
 from src.llm.provider import get_llm_provider
 from src.utils.logger import get_logger
 from src import __version__
-from src.core.config import validate_config, LLM_PROVIDER
+from src.core.config import (
+    API_TOKEN,
+    ENV,
+    GITHUB_TOKEN,
+    LLM_PROVIDER,
+    MAX_FILE_SIZE,
+    REPO_FULL_NAME,
+    validate_config,
+)
 from src.utils.embeddings import text_to_embedding
+from src.web.security import authorize_websocket, require_api_token
 
 logger = get_logger(__name__)
 
@@ -58,35 +68,62 @@ app = FastAPI(
 templates = Jinja2Templates(directory="src/web/templates")
 app.mount("/static", StaticFiles(directory="src/web/static"), name="static")
 
-# Initialize components
-vector_store = VectorStore(dimension=128, storage_path="data/vector_store")
-memory_manager = MemoryManager("data/memory.db")
-llm_provider = get_llm_provider("mock")
+@dataclass
+class WebRuntime:
+    """Explicit dependency graph for one Web application process."""
 
-# Initialize agents
-github_agent = GitHubIssueAgent(
-    repo="default/repo",
-    token="mock_token",
-    config={"test_mode": True}
-)
+    vector_store: VectorStore
+    memory_manager: MemoryManager
+    llm_provider: Any
+    agent_manager: AgentManager
+    image_agent: ImageAgent
+    github_enabled: bool
 
-doc_agent = DocumentationAgent(config={"test_mode": True})
-code_agent = CodeChatAgent(llm_provider=llm_provider)
-image_agent = ImageAgent(config={"test_mode": True})
 
-# Agent manager
-agent_manager = AgentManager({
-    "github_issue": github_agent,
-    "documentation": doc_agent,
-    "code": code_agent,
-    "image": image_agent
-})
+def build_runtime() -> WebRuntime:
+    """Construct runtime dependencies from environment-backed configuration."""
+    vector = VectorStore(dimension=128, storage_path="data/vector_store")
+    memory = MemoryManager("data/memory.db")
+    llm = get_llm_provider(LLM_PROVIDER or "mock")
+    github_enabled = bool(GITHUB_TOKEN and REPO_FULL_NAME)
+    github = GitHubIssueAgent(
+        repo=REPO_FULL_NAME or "local/demo",
+        token=GITHUB_TOKEN or "",
+        config={"test_mode": not github_enabled},
+    )
+    documentation = DocumentationAgent(config={"test_mode": not github_enabled})
+    code = CodeChatAgent(llm_provider=llm)
+    image = ImageAgent(config={"test_mode": ENV.lower() != "production"})
+    manager = AgentManager({
+        "github_issue": github,
+        "documentation": documentation,
+        "code": code,
+        "image": image,
+    })
+    return WebRuntime(
+        vector_store=vector,
+        memory_manager=memory,
+        llm_provider=llm,
+        agent_manager=manager,
+        image_agent=ImageAgent(
+            rag_store=vector,
+            config={"test_mode": ENV.lower() != "production"},
+        ),
+        github_enabled=github_enabled,
+    )
 
-# Initialize ImageAgent with RAG store
-image_agent_with_rag = ImageAgent(
-    rag_store=vector_store,
-    config={"test_mode": True}
-)
+
+runtime = build_runtime()
+app.state.runtime = runtime
+
+# Compatibility aliases for existing route functions and imports. All are
+# sourced from the explicit runtime graph above.
+vector_store = runtime.vector_store
+memory_manager = runtime.memory_manager
+llm_provider = runtime.llm_provider
+agent_manager = runtime.agent_manager
+image_agent_with_rag = runtime.image_agent
+_github_enabled = runtime.github_enabled
 
 # Pydantic models
 class IssueInput(BaseModel):
@@ -176,6 +213,9 @@ async def chat_websocket(ws: WebSocket):
     Client sends: {"message": "...", "model": "mock"}
     Server emits JSON events: session / thinking / start / chunk / end / error.
     """
+    if not await authorize_websocket(ws):
+        await ws.close(code=4401, reason="Unauthorized")
+        return
     await ws.accept()
     session_id = str(uuid.uuid4())
     await ws.send_text(json.dumps({"type": "session", "session_id": session_id}))
@@ -236,7 +276,7 @@ async def image_page(request: Request):
     """Image analysis page"""
     return templates.TemplateResponse("image.html", {"request": request})
 
-@app.post("/analyze_image")
+@app.post("/analyze_image", dependencies=[Depends(require_api_token)])
 async def analyze_image(file: UploadFile = File(...)):
     """Analyze uploaded image using ImageAgent"""
     try:
@@ -255,7 +295,9 @@ async def analyze_image(file: UploadFile = File(...)):
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
             # Read and save uploaded file
-            content = await file.read()
+            content = await file.read(MAX_FILE_SIZE + 1)
+            if len(content) > MAX_FILE_SIZE:
+                raise HTTPException(status_code=413, detail="Image exceeds MAX_FILE_SIZE")
             temp_file.write(content)
             temp_file_path = temp_file.name
         
@@ -305,7 +347,11 @@ async def logs_page(request: Request):
     """Logs page"""
     return templates.TemplateResponse("logs.html", {"request": request})
 
-@app.post("/analyze_issue", response_model=WorkflowResponse)
+@app.post(
+    "/analyze_issue",
+    response_model=WorkflowResponse,
+    dependencies=[Depends(require_api_token)],
+)
 async def analyze_issue(issue: IssueInput):
     """Analyze GitHub issue using multi-agent workflow"""
     try:
@@ -415,7 +461,7 @@ async def get_memory_stats():
         logger.error(f"Error getting memory stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/memory/search")
+@app.post("/memory/search", dependencies=[Depends(require_api_token)])
 async def search_memory(query: str):
     """Search memory for relevant information"""
     try:
@@ -483,7 +529,7 @@ async def get_vector_store_stats():
         logger.error(f"Error getting vector store stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/vector_store/search")
+@app.post("/vector_store/search", dependencies=[Depends(require_api_token)])
 async def search_vector_store(query: str, k: int = 5):
     """Search vector store for similar documents"""
     try:
@@ -509,17 +555,28 @@ async def search_vector_store(query: str, k: int = 5):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Report actual component readiness instead of static labels."""
+    components = {}
+    checks = (
+        ("vector_store", lambda: vector_store.get_stats()),
+        ("memory_manager", lambda: memory_manager.get_stats()),
+        ("agent_manager", lambda: {"agents": len(agent_manager.agents)}),
+        ("llm_provider", lambda: getattr(llm_provider, "get_status", lambda: {"name": llm_provider.name})()),
+    )
+    for name, check in checks:
+        try:
+            components[name] = {"status": "ready", "details": check()}
+        except Exception as error:
+            components[name] = {"status": "unavailable", "error": str(error)}
+
+    ready = all(item["status"] == "ready" for item in components.values())
     return {
-        "status": "healthy",
+        "status": "healthy" if ready else "degraded",
         "version": __version__,
-        "phase": "Phase 5 - Multi-modal & Integrations",
-        "components": {
-            "vector_store": "active",
-            "memory_manager": "active",
-            "agent_manager": "active",
-            "llm_provider": "active"
-        }
+        "mode": "production" if ENV.lower() == "production" else "development",
+        "github_enabled": _github_enabled,
+        "authentication_configured": bool(API_TOKEN),
+        "components": components,
     }
 
 # Startup event
@@ -532,7 +589,9 @@ async def startup_event():
     os.makedirs("data", exist_ok=True)
     os.makedirs("data/vector_store", exist_ok=True)
     
-    validate_config()
+    validate_config(strict=False)
+    if ENV.lower() == "production" and not API_TOKEN:
+        raise RuntimeError("API_TOKEN is required in production")
 
     # Add sample documents only when the store is empty to keep startup idempotent
     sample_docs = [

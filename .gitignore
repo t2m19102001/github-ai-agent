@@ -9,6 +9,10 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 build/
 develop-eggs/
 dist/
@@ -41,6 +45,14 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Runtime databases and generated indexes
+logs.db
+data/memory.db
+data/local_agent/
+data/vector_store/
+:memory:/
+
 # RAG vector store
 .chroma/
 

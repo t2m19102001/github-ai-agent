@@ -263,7 +263,7 @@ class TestPhase3Integration:
         analysis = await issue_agent.analyze_issue(test_issue)
         
         assert analysis.issue_number == 123
-        assert analysis.title == "Login fails"
+        assert analysis.title == "Bug: Login fails"
         assert analysis.category in ["Bug", "Feature", "Documentation", "Question", "Other"]
         assert analysis.priority in ["Critical", "High", "Medium", "Low"]
         assert analysis.complexity in ["Low", "Medium", "High"]

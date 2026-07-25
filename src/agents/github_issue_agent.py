@@ -61,7 +61,7 @@ class GitHubIssueAgent(BaseAgent):
         
         # Issue analysis patterns
         self.bug_patterns = [
-            r'\b(bug|error|issue|problem|fail|crash|broken|exception)\b',
+            r'\b(bug|error|problem|fail|crash|broken|exception)\b',
             r'\b(not working|doesn\'t work|unable to|can\'t|cannot)\b',
             r'\b(stack trace|traceback|error message|exception)\b'
         ]
@@ -73,9 +73,9 @@ class GitHubIssueAgent(BaseAgent):
         ]
         
         self.urgency_patterns = [
-            r'\b(urgent|critical|blocking|immediate|asap)\b',
-            r'\b(breaking|production|live|deployed)\b',
-            r'\b(can\'t proceed|blocked|stuck|waiting)\b'
+            r'\b(critical|blocking)\b',
+            r'\b(breaking|production down|live outage)\b',
+            r'\b(can\'t proceed|blocked)\b'
         ]
         
         # Set system prompt
@@ -356,7 +356,7 @@ What would you like me to help with?"""
                 return "Critical"
         
         # Check for high priority indicators
-        high_patterns = [r'\b(urgent|important|high priority|asap)\b']
+        high_patterns = [r'\b(urgent|important|high priority|asap|immediate)\b']
         for pattern in high_patterns:
             if re.search(pattern, text_lower):
                 return "High"
@@ -414,7 +414,7 @@ What would you like me to help with?"""
     
     def _suggest_labels(self, category: str, priority: str, complexity: str) -> List[str]:
         """Suggest appropriate labels"""
-        labels = [category]
+        labels = [category.lower()]
         
         # Add priority label
         if priority in ["Critical", "High"]:

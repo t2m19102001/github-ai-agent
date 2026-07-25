@@ -388,7 +388,9 @@ class TestGitToolsIntegration:
             assert status.is_clean is True
             
             commits = git.get_commit_history(5)
-            assert len(commits) >= 2
+            # History is scoped to the checked-out branch; the feature commit
+            # remains reachable from the feature branch until it is merged.
+            assert len(commits) >= 1
             
             branches = git.get_repo_info()["branches"]
             assert "main" in branches

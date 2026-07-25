@@ -21,18 +21,35 @@ import json
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from src.local_agent.core import AgentResponse, LocalAgent, QueryConfig
+from src.local_agent.config import LocalAgentConfig
 
 
 VERSION = "0.1.0"
+_CONFIG_OVERRIDE = os.environ.get("LOCAL_AGENT_CONFIG")
+_FILE_CONFIG = LocalAgentConfig(_CONFIG_OVERRIDE) if _CONFIG_OVERRIDE else LocalAgentConfig()
 DEFAULT_INDEX_DIR = os.environ.get(
-    "LOCAL_AGENT_INDEX_PATH", "data/local_agent/indices/code"
+    "LOCAL_AGENT_INDEX_PATH",
+    str(Path(_FILE_CONFIG.get("paths.indices_dir", "data/local_agent/indices")) / "code"),
 )
-DEFAULT_MODEL = os.environ.get("LOCAL_AGENT_MODEL", "llama3:8b")
+# Embedding model (sentence-transformers) — used to build/search the FAISS index.
+# Must match between `index` and `query`; it is NOT the LLM.
+DEFAULT_EMBED_MODEL = os.environ.get(
+    "LOCAL_AGENT_EMBED_MODEL",
+    _FILE_CONFIG.get("indexing.embedding_model", "all-MiniLM-L6-v2"),
+)
+# LLM model (Ollama) — the "brain" that writes the answer. Independent of embeddings.
+DEFAULT_LLM_MODEL = os.environ.get(
+    "LOCAL_AGENT_MODEL", _FILE_CONFIG.get("llm.model", "llama3.2:3b")
+)
+# Ollama HTTP timeout (seconds). Generous default: slow CPU-only boxes need it.
+DEFAULT_LLM_TIMEOUT = int(
+    os.environ.get("LOCAL_AGENT_TIMEOUT", _FILE_CONFIG.get("llm.timeout_seconds", 600))
+)
 
 AgentFactory = Callable[..., LocalAgent]
 IndexPipeline = Callable[..., dict]
@@ -68,10 +85,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Output directory for the FAISS index (default: {DEFAULT_INDEX_DIR}).",
     )
     index_p.add_argument(
-        "--model",
+        "--embed-model",
+        dest="embed_model",
         type=str,
-        default=DEFAULT_MODEL,
-        help=f"Embedding model name (default: {DEFAULT_MODEL}).",
+        default=DEFAULT_EMBED_MODEL,
+        help=(
+            "Sentence-transformers embedding model "
+            f"(default: {DEFAULT_EMBED_MODEL}). Not the LLM."
+        ),
     )
     index_p.add_argument(
         "--batch-size",
@@ -99,7 +120,28 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     query_p.add_argument("-k", "--top-k", type=int, default=8)
     query_p.add_argument("--max-context-tokens", type=int, default=32000)
-    query_p.add_argument("--model", type=str, default=DEFAULT_MODEL)
+    query_p.add_argument(
+        "--embed-model",
+        dest="embed_model",
+        type=str,
+        default=DEFAULT_EMBED_MODEL,
+        help=(
+            "Embedding model for retrieval; must match the one used at index "
+            f"time (default: {DEFAULT_EMBED_MODEL})."
+        ),
+    )
+    query_p.add_argument(
+        "--model",
+        type=str,
+        default=DEFAULT_LLM_MODEL,
+        help=f"Ollama LLM model that writes the answer (default: {DEFAULT_LLM_MODEL}).",
+    )
+    query_p.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_LLM_TIMEOUT,
+        help=f"Ollama request timeout in seconds (default: {DEFAULT_LLM_TIMEOUT}).",
+    )
     query_p.add_argument("--index-dir", type=str, default=DEFAULT_INDEX_DIR)
     query_p.add_argument(
         "--json",
@@ -108,6 +150,77 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Emit the response as JSON.",
     )
     query_p.add_argument("-v", "--verbose", action="store_true")
+
+    # ---- agent (tool-calling loop) ----
+    agent_p = subparsers.add_parser(
+        "agent",
+        help="Answer a question using the tool-calling loop (reads files/git).",
+        description=(
+            "Drive the LLM through a read-only tool-calling loop: it can list "
+            "files, read files, find symbols, and inspect git history."
+        ),
+    )
+    agent_p.add_argument(
+        "question",
+        type=str,
+        help="Natural-language task, e.g. 'read configs/localagent.yaml and ...'",
+    )
+    agent_p.add_argument(
+        "--model",
+        type=str,
+        default=DEFAULT_LLM_MODEL,
+        help=f"Ollama LLM model (default: {DEFAULT_LLM_MODEL}).",
+    )
+    agent_p.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_LLM_TIMEOUT,
+        help=f"Ollama request timeout in seconds (default: {DEFAULT_LLM_TIMEOUT}).",
+    )
+    agent_p.add_argument(
+        "--repo-root",
+        type=str,
+        default=".",
+        help="Repository root the tools operate within (default: current dir).",
+    )
+    agent_p.add_argument(
+        "--max-iters",
+        type=int,
+        default=4,
+        help="Maximum tool-calling turns before stopping (default: 4).",
+    )
+    agent_p.add_argument(
+        "--session",
+        type=str,
+        default=None,
+        help="Session id to remember across runs (enables multi-turn memory).",
+    )
+    agent_p.add_argument(
+        "--session-db",
+        type=str,
+        default="data/local_agent/sessions.db",
+        help="SQLite file storing session history.",
+    )
+    agent_p.add_argument(
+        "--history-turns",
+        type=int,
+        default=6,
+        help="How many recent turns to feed back as context (default: 6).",
+    )
+    agent_p.add_argument(
+        "--index-dir",
+        type=str,
+        default=None,
+        help="FAISS index dir. If given, enables the RAG-backed search_code tool.",
+    )
+    agent_p.add_argument(
+        "--embed-model",
+        dest="embed_model",
+        type=str,
+        default=DEFAULT_EMBED_MODEL,
+        help=f"Embedding model for search_code (default: {DEFAULT_EMBED_MODEL}).",
+    )
+    agent_p.add_argument("-v", "--verbose", action="store_true")
 
     return parser
 
@@ -131,6 +244,8 @@ def main(
         return _cmd_index(args, out=out, err=err, pipeline=index_pipeline)
     if args.command == "query":
         return _cmd_query(args, out=out, err=err, agent_factory=agent_factory)
+    if args.command == "agent":
+        return _cmd_agent(args, out=out, err=err)
 
     err.write(f"Error: unknown command {args.command!r}\n")
     return 1
@@ -152,7 +267,7 @@ def _cmd_index(args, *, out, err, pipeline: IndexPipeline | None) -> int:
         stats = runner(
             repo_path=repo_path,
             index_dir=Path(args.index_dir).expanduser().resolve(),
-            model_name=args.model,
+            model_name=args.embed_model,
             batch_size=args.batch_size,
             verbose=args.verbose,
             log=out,
@@ -248,12 +363,20 @@ def _cmd_query(args, *, out, err, agent_factory: AgentFactory | None) -> int:
         max_context_tokens=args.max_context_tokens,
     )
     factory = agent_factory or _build_default_agent
+    # Only the default factory understands embed_model/timeout; injected test
+    # factories keep the simpler (config, index_dir, model_name) signature.
+    extra = (
+        {}
+        if agent_factory is not None
+        else {"embed_model": args.embed_model, "timeout": args.timeout}
+    )
 
     try:
         agent = factory(
             config=config,
             index_dir=args.index_dir,
             model_name=args.model,
+            **extra,
         )
     except Exception as error:
         err.write(f"Error: failed to initialize agent: {error}\n")
@@ -281,6 +404,99 @@ def _cmd_query(args, *, out, err, agent_factory: AgentFactory | None) -> int:
     else:
         out.write(_format_human(response, verbose=args.verbose) + "\n")
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Subcommand: agent (tool-calling loop)
+# ---------------------------------------------------------------------------
+
+
+def _cmd_agent(args, *, out, err) -> int:
+    from src.local_agent.agent_loop import ToolCallingAgent, build_default_registry
+
+    repo_root = Path(args.repo_root).expanduser().resolve()
+    if not repo_root.is_dir():
+        err.write(f"Error: repo-root is not a directory: {repo_root}\n")
+        return 2
+
+    llm = _OllamaAdapter(model_name=args.model, timeout=args.timeout)
+    # Enable the RAG-backed search_code tool only when an index dir is given.
+    registry = build_default_registry(
+        repo_root,
+        index_dir=args.index_dir,
+        embed_model=args.embed_model if args.index_dir else None,
+    )
+    agent = ToolCallingAgent(llm, registry, max_iters=args.max_iters)
+
+    # Load prior turns for this session, if one was requested.
+    store, history = _load_session(args)
+
+    try:
+        result = agent.run(args.question, history=history)
+    except ValueError as error:
+        err.write(f"Error: {error}\n")
+        return 2
+    except Exception as error:
+        err.write(f"Error: agent failed: {error}\n")
+        if _debug_enabled(args.verbose):
+            import traceback
+
+            traceback.print_exc(file=err)
+        return 1
+
+    if args.verbose:
+        out.write("Steps:\n")
+        for i, step in enumerate(result.steps, start=1):
+            preview = (step.tool_output or "").splitlines()[:1]
+            snippet = f" -> {preview[0][:60]}" if preview else ""
+            out.write(f"  {i}. {step.kind}: {step.detail[:60]}{snippet}\n")
+        out.write(f"  (stopped: {result.stopped_reason})\n\n")
+
+    # Persist this turn so the next `--session <same-id>` run remembers it.
+    if store is not None and args.session:
+        _save_turn(store, args.session, args.question, result.answer)
+
+    out.write("Answer:\n")
+    out.write(f"  {result.answer}\n")
+    if result.warnings:
+        out.write("\nGuardrail warnings:\n")
+        for w in result.warnings:
+            out.write(f"  ! {w}\n")
+    return 0
+
+
+def _load_session(args):
+    """Return (store, history). Both are None/empty when no --session given."""
+    if not args.session:
+        return None, None
+    store = _make_store(args.session_db)
+    turns = store.load_turns(args.session, limit=args.history_turns)
+    history = [(t.role, t.content) for t in turns]
+    return store, history
+
+
+def _make_store(session_db: str):
+    """Pick the backend from the --session-db value.
+
+    A ``postgresql://`` / ``postgres://`` URL → Postgres; anything else is
+    treated as a SQLite file path. Same store interface either way.
+    """
+    if session_db.startswith(("postgresql://", "postgres://")):
+        from src.local_agent.memory.pg_storage import PostgresSessionStore
+
+        return PostgresSessionStore(session_db)
+    from src.local_agent.memory.storage import SessionStore
+
+    return SessionStore(session_db)
+
+
+def _save_turn(store, session_id: str, question: str, answer: str) -> None:
+    from src.local_agent.memory.storage import Turn
+
+    now = datetime.now(timezone.utc).isoformat()
+    store.ensure_session(session_id, now=now)
+    store.append_turn(session_id, Turn(role="user", content=question), now=now)
+    store.append_turn(session_id, Turn(role="agent", content=answer), now=now)
 
 
 # ---------------------------------------------------------------------------
@@ -355,16 +571,19 @@ def _build_default_agent(
     config: QueryConfig,
     index_dir: str,
     model_name: str,
+    embed_model: str = DEFAULT_EMBED_MODEL,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
 ) -> LocalAgent:
     from src.local_agent.retrieval.context_builder import ContextBuilder
     from src.local_agent.retrieval.retriever import BasicRetriever
 
-    retriever = BasicRetriever(index_dir=index_dir, model_name=model_name)
+    # embed_model drives retrieval (must match the index); model_name is the LLM.
+    retriever = BasicRetriever(index_dir=index_dir, model_name=embed_model)
     context_builder = ContextBuilder(
         max_tokens=config.max_context_tokens,
         reserve_tokens=config.reserve_tokens,
     )
-    llm_client = _OllamaAdapter(model_name=model_name)
+    llm_client = _OllamaAdapter(model_name=model_name, timeout=timeout)
     return LocalAgent(
         retriever=retriever,
         context_builder=context_builder,
@@ -376,8 +595,9 @@ def _build_default_agent(
 class _OllamaAdapter:
     """Translate LLMClientProtocol(generate) → OllamaProvider(call(messages))."""
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, timeout: int = DEFAULT_LLM_TIMEOUT) -> None:
         self.model_name = model_name
+        self.timeout = timeout
         self._provider = None
 
     def _get_provider(self):
@@ -399,7 +619,12 @@ class _OllamaAdapter:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        result = provider.call(messages, temperature=temperature, max_tokens=max_tokens)
+        result = provider.call(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=self.timeout,
+        )
         if result is None:
             raise RuntimeError("Ollama returned no response (connection or timeout error)")
         return result

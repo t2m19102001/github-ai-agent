@@ -243,7 +243,7 @@ hoặc chạy trong notebook).
 - **Incremental update**: chỉ re-index file thay đổi (P1).
 - **Multi-language**: hiện chỉ Python; JS/TS/Go defer V2.
 - **Index types**: `IndexIVFFlat` / `IndexHNSWFlat` cho repo > 100K chunks (P1).
-- **Config wiring**: `configs/chunking.yaml` + `configs/localagent.yaml` chưa được
-  CLI đọc. Defer Milestone 1.
+- **Config wiring**: runtime defaults được CLI đọc từ `configs/localagent.yaml`;
+  hai config reference-only cũ đã bỏ để tránh mô tả capability không tồn tại.
 - **Metadata sidecar mở rộng**: thêm `imports`, `token_count` thật (BPE) — hiện
   bị strip khi vào IndexMetadata. Cần khi P0-09+ muốn citation chi tiết.

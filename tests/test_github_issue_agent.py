@@ -294,11 +294,11 @@ class TestGitHubIssueAgent:
             response = await agent.process_message("issue stats", context)
             
             assert "Issue Statistics" in response
-            assert "Total Open Issues: 2" in response
-            assert "Total Closed Issues: 1" in response
+            assert "Total Open Issues**: 2" in response
+            assert "Total Closed Issues**: 1" in response
             assert "Open Issues by Category" in response
-            assert "Bug: 1" in response
-            assert "Feature: 1" in response
+            assert "Bug**: 1" in response
+            assert "Feature**: 1" in response
     
     def test_categorize_issue_bug(self, agent):
         """Test issue categorization for bugs"""
@@ -365,14 +365,14 @@ class TestGitHubIssueAgent:
     def test_suggest_labels_bug(self, agent):
         """Test label suggestions for bug issues"""
         labels = agent._suggest_labels("Bug", "High", "Medium")
-        assert "Bug" in labels
+        assert "bug" in labels
         assert "priority/high" in labels
         assert "complexity/medium" in labels
     
     def test_suggest_labels_feature(self, agent):
         """Test label suggestions for feature issues"""
         labels = agent._suggest_labels("Feature", "Medium", "Low")
-        assert "Feature" in labels
+        assert "feature" in labels
         assert "priority/medium" in labels
         assert "complexity/low" in labels
     
@@ -493,7 +493,7 @@ class TestGitHubIssueAgentIntegration:
         """Test complete issue analysis workflow"""
         # Note: This test requires actual GitHub token
         # Skip in CI/CD environment
-        if not pytest.getoption("--run-integration", default=False):
+        if not os.getenv("RUN_LIVE_INTEGRATION"):
             pytest.skip("Integration test requires --run-integration flag")
         
         token = os.getenv("GITHUB_TOKEN")

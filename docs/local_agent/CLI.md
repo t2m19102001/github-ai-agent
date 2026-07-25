@@ -13,12 +13,20 @@ CLI được thiết kế:
 - Grounded trên code, tránh đoán mò
 - Dễ tích hợp vào workflow existing (shell, editor, scripts)
 
-CLI có 2 subcommand:
+CLI có 2 subcommand; planning handoff được cung cấp qua Python API:
 
 | Command | Mục đích |
 |---|---|
 | `index <repo_path>` | Crawl + parse + chunk + embed → ghi FAISS index xuống đĩa |
 | `query "câu hỏi"` | Retrieve + build context + gọi LLM trả lời câu hỏi |
+
+```python
+request = agent.plan("Add robust retry handling", max_files=3)
+payload = request.json()
+```
+
+Plan chỉ dùng file/symbol đã retrieve, chạy `FileGuardrails`, không sửa source,
+không auto-execute, và luôn yêu cầu phê duyệt trước SWE executor.
 
 ---
 
@@ -27,11 +35,11 @@ CLI có 2 subcommand:
 ### 1. Chuẩn bị môi trường
 
 - Python 3.10+
-- Các dependency đã cài (tree-sitter, sentence-transformers, faiss-cpu, v.v.)
+- Các dependency đã cài (`sentence-transformers`, `faiss-cpu`, v.v.); parser dùng Python AST chuẩn.
 - Ollama đang chạy với model đã pull (chỉ cần cho `query`):
 
 ```bash
-ollama pull llama3:8b
+ollama pull llama3.2:3b
 ollama serve
 ```
 
@@ -263,3 +271,14 @@ Nếu bạn gặp vấn đề khác với CLI, hãy đính kèm:
 - Output (stdout/stderr)
 - Thông tin hệ thống (OS, Python, Ollama/model version)
 khi mở issue hoặc hỏi trong kênh nội bộ.
+# Local AI Agent CLI
+
+Ngoài `index` và `query`, Python API hỗ trợ handoff kế hoạch read-only:
+
+```python
+request = agent.plan("Add robust retry handling", max_files=3)
+payload = request.json()
+```
+
+Plan chỉ dùng file/symbol đã retrieve, chạy `FileGuardrails`, không sửa source,
+không auto-execute, và luôn yêu cầu phê duyệt trước khi gửi sang SWE executor.

@@ -79,7 +79,6 @@ Determinism được enforce ở mọi tầng (sort-stable). Cùng repo + cùng 
 |---|---|---|
 | [retriever.py](../../src/local_agent/retrieval/retriever.py) | Embed query + FAISS search + map IDs → metadata | `list[RetrievalResult]` |
 | [context_builder.py](../../src/local_agent/retrieval/context_builder.py) | Dedupe + budget enforce + format | `ContextWindow` |
-| [ranker.py](../../src/local_agent/retrieval/ranker.py) | (stub, P1: hybrid + RRF) | — |
 
 **Key contracts**:
 - (P0-07) `BasicRetriever` raise `ValueError` khi model_name của index ≠ model_name của retriever (silent failure prevention).
@@ -161,17 +160,16 @@ metadata: ContextMetadata        # 7 fields
 |---|---|---|
 | ingestion/ | ~1.5K | ✅ V1 done, tests xanh |
 | indexing/ | ~270 | ✅ V1 done |
-| retrieval/ | ~340 | ✅ V1 done (ranker.py = stub P1) |
+| retrieval/ | ~320 | ✅ V1 dense retrieval; hybrid + RRF ở backlog |
 | core.py | 221 | ✅ V1 done |
 | cli.py | 403 | ✅ V1 done (index + query) |
-| explainer/ | ~220 | 🟢 citation + formatter wired vào core/cli, tests xanh; confidence.py còn stub |
+| explainer/ | ~200 | 🟢 citation + formatter wired vào core/cli, tests xanh; confidence scoring ở backlog |
 | memory/ | ~100 | 🟡 partial — session.py, không persist |
-| planner/ | ~175 | 🟡 stubs — analyzer/sequencer/risk_assessor |
-| tools/ | ~76 | 🟡 stubs — file_reader/git_reader/code_query |
-| guardrails/ | ~250 | 🟡 validators.py thực, chưa wire vào core |
-| integration/swe16_interface.py | 190 | 🟡 pydantic schemas, chưa có flow generate |
+| planner/ | ~200 | ✅ deterministic analyzer/sequencer/risk assessor + SWE handoff |
+| guardrails/ | ~250 | 🟢 file guardrails wired vào planning handoff |
+| integration/swe16_interface.py | ~300 | 🟢 `PlanRequestBuilder` tạo handoff grounded |
 
-V2 roadmap: wire confidence scoring (explainer/confidence.py) → planner (PlanRequest) → SWE-1.6 handoff. Memory + tools cho multi-turn / read-only file ops.
+`LocalAgent.plan(goal)` tạo `PlanRequest` grounded từ retrieval, chạy file guardrails, luôn `auto_execute=False` và `require_approval=True`. Memory + read-only tools vẫn thuộc roadmap.
 
 ---
 
@@ -186,7 +184,7 @@ V2 roadmap: wire confidence scoring (explainer/confidence.py) → planner (PlanR
 | CLI | [tests/local_agent/test_cli/](../../tests/local_agent/test_cli/) | 27 |
 | Other (legacy) | `src/local_agent/tests/` | 51 |
 
-Total V1 (live): **204 passed, 14 skipped**. Coverage 85-98% trên modules core.
+Xác minh Python 3.10 tháng 7/2026: **254 passed, 6 skipped**, bao gồm planner và guarded SWE handoff.
 
 ---
 
@@ -194,11 +192,9 @@ Total V1 (live): **204 passed, 14 skipped**. Coverage 85-98% trên modules core.
 
 | File | Status |
 |---|---|
-| [configs/localagent.yaml](../../configs/localagent.yaml) | ✅ exists, ❌ chưa wire vào CLI |
-| [configs/chunking.yaml](../../configs/chunking.yaml) | ✅ exists, ❌ chunker chưa đọc |
-| [configs/models.yaml](../../configs/models.yaml) | ✅ exists |
+| [configs/localagent.yaml](../../configs/localagent.yaml) | ✅ runtime defaults được CLI đọc |
 
-V1 dùng hardcoded defaults trong code; config wiring defer Milestone 1.
+Environment variables vẫn có precedence cao hơn file config. Hai config reference-only cũ đã được bỏ để tránh mô tả hybrid search/tree-sitter không tồn tại.
 
 Env var override: `LOCAL_AGENT_INDEX_PATH`, `LOCAL_AGENT_MODEL`, `LOCAL_AGENT_DEBUG=1`.
 

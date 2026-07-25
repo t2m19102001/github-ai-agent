@@ -1,4 +1,5 @@
-from typing import List, Dict, Optional
+import os
+from typing import List, Dict
 from src.utils.logger import get_logger
 try:
     import tiktoken  # type: ignore
@@ -13,7 +14,11 @@ class TokenManager:
     Uses tiktoken for accurate counting (defaulting to cl100k_base encoding).
     """
     def __init__(self, model: str = "gpt-4"):
-        if tiktoken is None:
+        # Whitespace counting is deterministic, offline, and sufficient for
+        # context budgeting. Exact OpenAI tokenization is opt-in because some
+        # tiktoken builds download vocabulary data on first use.
+        use_tiktoken = os.getenv("TOKENIZER_MODE", "basic").lower() == "tiktoken"
+        if tiktoken is None or not use_tiktoken:
             class _BasicEncoding:
                 def encode(self, text: str):
                     return text.split() if text else []
@@ -22,9 +27,20 @@ class TokenManager:
             self.encoding = _BasicEncoding()
         else:
             try:
+                # Some tiktoken releases download the vocabulary on first use.
+                # The agent must remain bootable in offline/local-only setups.
                 self.encoding = tiktoken.encoding_for_model(model)
-            except KeyError:
-                self.encoding = tiktoken.get_encoding("cl100k_base")
+            except Exception as error:
+                logger.warning("tiktoken unavailable at runtime; using offline token estimate: %s", error)
+
+                class _BasicEncoding:
+                    def encode(self, text: str):
+                        return text.split() if text else []
+
+                    def decode(self, tokens: List[str]):
+                        return " ".join(tokens)
+
+                self.encoding = _BasicEncoding()
             
     def count_tokens(self, text: str) -> int:
         """Count tokens in a text string"""

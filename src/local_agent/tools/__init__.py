@@ -1,20 +1,20 @@
-"""
-Tools Module.
+"""Read-only tools the local agent can call during a tool-calling loop."""
 
-Purpose: Read-only file and git operations.
-Input: File paths, git commands
-Output: File contents, git info
+from src.local_agent.tools.base import Tool, ToolRegistry, ToolResult, is_within
+from src.local_agent.tools.code_query import CodeQueryTool
+from src.local_agent.tools.file_reader import FileReaderTool
+from src.local_agent.tools.git_reader import GitReaderTool
+from src.local_agent.tools.list_files import ListFilesTool
+from src.local_agent.tools.search_code import SearchCodeTool
 
-Components:
-    file_reader: File operations (read-only)
-    git_reader: Git operations (log, diff, blame)
-    code_query: Code analysis queries
-
-NOTE: All tools are read-only - no write operations in V1.
-"""
-
-from src.local_agent.tools.file_reader import FileReader
-from src.local_agent.tools.git_reader import GitReader
-from src.local_agent.tools.code_query import CodeQuery
-
-__all__ = ["FileReader", "GitReader", "CodeQuery"]
+__all__ = [
+    "CodeQueryTool",
+    "FileReaderTool",
+    "GitReaderTool",
+    "ListFilesTool",
+    "SearchCodeTool",
+    "Tool",
+    "ToolRegistry",
+    "ToolResult",
+    "is_within",
+]

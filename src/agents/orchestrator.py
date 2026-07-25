@@ -264,6 +264,10 @@ class MultiAgentOrchestrator:
                 
                 agent = self._get_agent(role)
                 response = agent.process(state, task)
+
+                failure_markers = ("planning failed:", "coding failed:", "review failed:")
+                if not response or response.lower().startswith(failure_markers):
+                    raise RuntimeError(response or f"{role.value} returned no response")
                 
                 loop_time = time.time() - loop_start
                 self.performance_tracker.record_loop_time(role, loop_time)

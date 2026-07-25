@@ -94,7 +94,7 @@ def test_index_succeeds_on_real_repo(tmp_path: Path) -> None:
     repo = _seed_repo(tmp_path)
     index_dir = tmp_path / "index"
     code, stdout, _ = _run_index(
-        ["index", str(repo), "--index-dir", str(index_dir), "--model", "fake-model"]
+        ["index", str(repo), "--index-dir", str(index_dir), "--embed-model", "fake-model"]
     )
     assert code == 0
     assert "Indexed" in stdout
@@ -114,7 +114,7 @@ def test_index_verbose_prints_progress(tmp_path: Path) -> None:
             str(repo),
             "--index-dir",
             str(index_dir),
-            "--model",
+            "--embed-model",
             "fake-model",
             "--verbose",
         ]
@@ -140,7 +140,7 @@ def test_index_no_python_files_exits_one(tmp_path: Path) -> None:
     empty.mkdir()
     (empty / "readme.md").write_text("hi")
     code, _, stderr = _run_index(
-        ["index", str(empty), "--index-dir", str(tmp_path / "idx"), "--model", "fake-model"]
+        ["index", str(empty), "--index-dir", str(tmp_path / "idx"), "--embed-model", "fake-model"]
     )
     assert code == 1
     assert "no python files" in stderr.lower()
@@ -175,7 +175,7 @@ def test_pipeline_injection_isolates_io(tmp_path: Path) -> None:
     )
     assert code == 0
     assert captured["batch_size"] == 16
-    assert captured["model_name"] == "llama3:8b"  # default
+    assert captured["model_name"] == "all-MiniLM-L6-v2"  # default embedding model
     assert str(captured["repo_path"]).endswith("repo")
 
 

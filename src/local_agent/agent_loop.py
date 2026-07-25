@@ -1,0 +1,280 @@
+"""
+Prompt-based tool-calling loop — the difference between a *chatbot* and an *agent*.
+
+`LocalAgent.query` (core.py) is one-shot RAG: retrieve context, ask the LLM
+once, done. This loop adds the missing ingredient of an *agent*: the LLM can
+decide it needs more information, ask to run a tool, see the result, and try
+again — repeating until it can answer.
+
+Why "prompt-based" instead of Ollama's native function-calling API? Small local
+models (0.5b–3b) that run on a plain CPU do not support the tools API reliably.
+So we do it by hand, which is also the clearest way to *see* how tool-calling
+works underneath every framework:
+
+    1. Show the LLM a menu of tools and a strict reply protocol.
+    2. The LLM replies with ONE JSON object per turn:
+         {"tool": "read_file", "args": {"path": "src/foo.py"}}   → run a tool
+         {"final": "the answer"}                                 → stop
+    3. We parse that JSON, run the tool, append the result to the transcript,
+       and loop. A max-iteration cap guarantees termination.
+
+The LLM never touches the filesystem — it only *asks*; this module is the sole
+place a tool actually runs, so every capability stays auditable and read-only.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass, field
+
+from pathlib import Path
+
+from src.local_agent.core import LLMClientProtocol
+from src.local_agent.guardrails.policy import (
+    check_final_answer,
+    check_observation,
+    check_tool_call,
+)
+from src.local_agent.tools.base import ToolRegistry, ToolResult
+from src.local_agent.tools.code_query import CodeQueryTool
+from src.local_agent.tools.file_reader import FileReaderTool
+from src.local_agent.tools.git_reader import GitReaderTool
+from src.local_agent.tools.list_files import ListFilesTool
+
+_DEFAULT_MAX_ITERS = 4
+
+_SYSTEM_PROMPT_TEMPLATE = (
+    "You are a code assistant that can call tools to inspect a repository.\n\n"
+    "Available tools:\n{menu}\n\n"
+    "On EVERY turn reply with exactly ONE JSON object and nothing else.\n"
+    "To call a tool:  {{\"tool\": \"<name>\", \"args\": {{...}}}}\n"
+    "To finish:       {{\"final\": \"<your answer>\"}}\n\n"
+    "Rules:\n"
+    "- If a previous Observation already contains the information you need, you "
+    "MUST reply with a final answer now. Do NOT call a tool again.\n"
+    "- Never call the same tool with the same arguments twice.\n"
+    "- Call a tool only to get information you do not already have.\n"
+    "- Never invent file paths you have not seen."
+)
+
+
+@dataclass
+class LoopStep:
+    """One turn of the loop, recorded so callers can inspect the agent's path."""
+
+    kind: str  # "tool" or "final" or "error"
+    detail: str  # tool name, or the final answer, or an error message
+    tool_output: str | None = None
+
+
+@dataclass
+class LoopResult:
+    """Outcome of running the loop: the answer plus a full trace for learning."""
+
+    answer: str
+    steps: list[LoopStep] = field(default_factory=list)
+    stopped_reason: str = "final"  # "final" | "max_iters"
+    # Non-blocking guardrail flags raised during the run (e.g. ungrounded
+    # answer, possible prompt-injection in a tool's output).
+    warnings: list[str] = field(default_factory=list)
+
+
+class ToolCallingAgent:
+    """Drive an LLM through a read → decide → act → observe loop."""
+
+    def __init__(
+        self,
+        llm_client: LLMClientProtocol,
+        registry: ToolRegistry,
+        max_iters: int = _DEFAULT_MAX_ITERS,
+    ) -> None:
+        self.llm = llm_client
+        self.registry = registry
+        self.max_iters = max_iters
+
+    def run(
+        self,
+        question: str,
+        history: list[tuple[str, str]] | None = None,
+    ) -> LoopResult:
+        """Answer ``question``, optionally aware of prior conversation ``history``.
+
+        ``history`` is a list of ``(role, content)`` turns from earlier in the
+        session ("user"/"agent"). Prepending it lets a follow-up like "and what
+        about the other file?" resolve against what was already discussed —
+        this is what makes the agent multi-turn instead of stateless.
+        """
+        if not isinstance(question, str) or not question.strip():
+            raise ValueError("question must be a non-empty string")
+
+        system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(menu=self.registry.render_menu())
+        # The transcript is the agent's growing short-term memory for this task.
+        transcript = _render_history(history) + f"Question: {question}\n"
+        steps: list[LoopStep] = []
+        # Remember every (tool, args) already run so a small model that keeps
+        # asking for the same read cannot spin — we short-circuit the repeat and
+        # nudge it to answer instead of burning the whole step budget.
+        seen_calls: set[str] = set()
+        warnings: list[str] = []
+        tool_calls_made = 0
+
+        for _ in range(self.max_iters):
+            raw = self.llm.generate(
+                system_prompt=system_prompt,
+                user_prompt=transcript + "\nYour JSON reply:",
+                max_tokens=512,
+                temperature=0.0,
+            )
+            decision = _parse_decision(raw)
+
+            if decision is None:
+                # The model broke protocol; tell it so and let it retry.
+                steps.append(LoopStep(kind="error", detail="unparseable reply"))
+                transcript += (
+                    "\nSystem: Your last reply was not valid JSON. Reply with a "
+                    "single JSON object as instructed.\n"
+                )
+                continue
+
+            if "final" in decision:
+                answer = str(decision["final"]).strip()
+                # Guardrail: warn if the answer is not grounded in any tool run.
+                grounded = check_final_answer(answer, tool_calls_made)
+                if not grounded.ok:
+                    warnings.append(grounded.message)
+                steps.append(LoopStep(kind="final", detail=answer))
+                return LoopResult(
+                    answer=answer,
+                    steps=steps,
+                    stopped_reason="final",
+                    warnings=warnings,
+                )
+
+            # Otherwise it's a tool call.
+            tool_name = str(decision.get("tool", ""))
+            tool_args = decision.get("args") or {}
+            call_key = tool_name + json.dumps(tool_args, sort_keys=True)
+
+            # Guardrail: block a clearly unsafe tool call before it runs.
+            guard = check_tool_call(tool_name, tool_args)
+            if guard.block:
+                warnings.append(guard.message)
+                steps.append(LoopStep(kind="error", detail=f"blocked:{tool_name}"))
+                transcript += (
+                    f"\nSystem: That tool call was blocked ({guard.message}). "
+                    "Choose a safe action or give a final answer.\n"
+                )
+                continue
+
+            if call_key in seen_calls:
+                # Repeat of an earlier identical call — don't run it again; the
+                # result is already in the transcript. Push back and let the
+                # model answer.
+                steps.append(LoopStep(kind="error", detail=f"repeat:{tool_name}"))
+                transcript += (
+                    "\nSystem: You already ran that exact tool call; its result "
+                    "is above. Do not repeat it — reply with a final answer.\n"
+                )
+                continue
+
+            seen_calls.add(call_key)
+            result = self._run_tool(tool_name, tool_args)
+            tool_calls_made += 1
+            steps.append(
+                LoopStep(kind="tool", detail=tool_name, tool_output=result.content)
+            )
+            # Guardrail: flag possible prompt-injection in the tool's output.
+            injection = check_observation(result.content)
+            if not injection.ok:
+                warnings.append(injection.message)
+            status = "OK" if result.ok else "ERROR"
+            transcript += (
+                f"\nAction: called {tool_name} with {json.dumps(tool_args)}\n"
+                f"Observation ({status}): {result.content}\n"
+            )
+
+        # Ran out of iterations without a final answer.
+        return LoopResult(
+            answer="I could not complete the task within the step budget.",
+            steps=steps,
+            stopped_reason="max_iters",
+            warnings=warnings,
+        )
+
+    def _run_tool(self, name: str, args: dict) -> ToolResult:
+        tool = self.registry.get(name)
+        if tool is None:
+            available = ", ".join(self.registry.names()) or "(none)"
+            return ToolResult.failure(
+                f"unknown tool {name!r}. Available: {available}"
+            )
+        if not isinstance(args, dict):
+            return ToolResult.failure(f"args for {name!r} must be an object")
+        return tool.run(args)
+
+
+def _render_history(history: list[tuple[str, str]] | None) -> str:
+    """Format prior turns as a short 'Previous conversation' preamble."""
+    if not history:
+        return ""
+    lines = ["Previous conversation:"]
+    for role, content in history:
+        # Trim long answers so old turns don't dominate the context window.
+        snippet = content if len(content) <= 300 else content[:300] + "..."
+        lines.append(f"{role}: {snippet}")
+    return "\n".join(lines) + "\n\n"
+
+
+_JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def _parse_decision(raw: str) -> dict | None:
+    """Extract the first JSON object from a possibly chatty LLM reply.
+
+    Small models often wrap JSON in prose or code fences, so we grab the first
+    ``{...}`` span rather than demanding the whole reply be pure JSON.
+    """
+    if not isinstance(raw, str):
+        return None
+    match = _JSON_OBJECT_RE.search(raw)
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group(0))
+    except (ValueError, TypeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def build_default_registry(
+    repo_root: Path | str,
+    *,
+    index_dir: Path | str | None = None,
+    embed_model: str | None = None,
+) -> ToolRegistry:
+    """Registry with every read-only tool wired to ``repo_root``.
+
+    Central place the CLI (and any caller) uses so the tool set stays
+    consistent everywhere. When ``index_dir`` + ``embed_model`` are given, the
+    RAG-backed ``search_code`` tool is added too — this is what lets the agent
+    combine semantic search with direct file reads (roadmap step F).
+    """
+    registry = ToolRegistry()
+    registry.register(ListFilesTool(repo_root))
+    registry.register(FileReaderTool(repo_root))
+    registry.register(CodeQueryTool(repo_root))
+    registry.register(GitReaderTool(repo_root))
+    if index_dir is not None and embed_model is not None:
+        from src.local_agent.tools.search_code import SearchCodeTool
+
+        registry.register(SearchCodeTool(index_dir=index_dir, model_name=embed_model))
+    return registry
+
+
+__all__ = [
+    "LoopResult",
+    "LoopStep",
+    "ToolCallingAgent",
+    "build_default_registry",
+]

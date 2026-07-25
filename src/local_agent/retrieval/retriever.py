@@ -31,9 +31,11 @@ if TYPE_CHECKING:
 
 
 class RetrievalSource(str, Enum):
-    """Which retrieval signal produced this hit. V1 only has dense."""
+    """Which retrieval signal produced this hit."""
 
     DENSE = "dense"
+    SPARSE = "sparse"
+    HYBRID = "hybrid"
 
 
 @dataclass(frozen=True)

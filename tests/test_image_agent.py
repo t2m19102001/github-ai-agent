@@ -16,7 +16,7 @@ from io import BytesIO
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.agents.image_agent import ImageAgent
+from src.agents.image_agent import ImageAgent, TESSERACT_READY
 from src.rag.vector_store import VectorStore
 from src.utils.logger import get_logger
 
@@ -109,6 +109,8 @@ class TestImageAgent(unittest.TestCase):
     
     def test_ocr_processing(self):
         """Test OCR text extraction"""
+        if not TESSERACT_READY:
+            self.skipTest("Tesseract executable is not installed")
         text_image_path = os.path.join(self.test_data_dir, "test_text.png")
         
         result = self.agent.process(text_image_path)
@@ -143,6 +145,8 @@ class TestImageAgent(unittest.TestCase):
     
     def test_error_detection(self):
         """Test error message detection in screenshots"""
+        if not TESSERACT_READY:
+            self.skipTest("Tesseract executable is not installed")
         error_path = os.path.join(self.test_data_dir, "error_screenshot.png")
         
         result = self.agent.analyze_screenshot(error_path)
@@ -184,6 +188,8 @@ class TestImageAgent(unittest.TestCase):
     
     def test_rag_integration(self):
         """Test RAG integration with image processing"""
+        if not TESSERACT_READY:
+            self.skipTest("Tesseract executable is not installed")
         # Create mock vector store
         vector_store = VectorStore(dimension=128, storage_path=":memory:")
         

@@ -400,7 +400,7 @@ language="typescript"
 
 ---
 
-**Status**: ✅ Production Ready!
+**Status**: historical prototype; requires the canonical regression/eval gate.
 
 Start server: `python run_web.py`
 Test: `curl -X POST http://localhost:5000/api/complete ...`

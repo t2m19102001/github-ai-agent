@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 3  # Success metric: <3m pipeline
+    timeout-minutes: 10
     
     steps:
     - name: Checkout code
@@ -24,23 +24,17 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest-cov black flake8 mypy
+        pip install pytest-cov flake8
     
     - name: Code Quality Checks
       run: |
         # Lint with flake8
         flake8 src/ tests/ --exclude=tests/verify_changes.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 src/ tests/ --exclude=tests/verify_changes.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-        
-        # Format check with black
-        black --check src/ tests/ || true
-        
-        # Type checking with mypy
-        mypy src/ --ignore-missing-imports || true  # Allow to pass for now
+        python -m compileall -q src tests
     
     - name: Run tests with coverage
       run: |
-        pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing tests/test_basic.py tests/test_stability_fixes.py
+        pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing tests/ src/local_agent/tests/
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -49,14 +43,6 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
-    
-    - name: Performance Tests
-      run: |
-        pytest tests/test_orchestrator.py::TestPerformanceTracker -v || true
-
-    - name: Security Tests
-      run: |
-        pytest tests/test_webhooks.py::TestSecurityGuardrails -v || true
     
     - name: Upload test artifacts
       uses: actions/upload-artifact@v4

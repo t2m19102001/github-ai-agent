@@ -136,7 +136,7 @@ def _run_index(repo: Path, idx: Path) -> tuple[int, str, str]:
     out = io.StringIO()
     err = io.StringIO()
     code = cli_module.main(
-        ["index", str(repo), "--index-dir", str(idx), "--model", _MODEL],
+        ["index", str(repo), "--index-dir", str(idx), "--embed-model", _MODEL],
         stdout=out,
         stderr=err,
     )

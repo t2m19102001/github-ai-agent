@@ -7,8 +7,6 @@ Output: Validation results
 
 Components:
     validators: Input/output validation
-    filters: Content filtering (read-only patterns)
-    limits: Resource limits
 
 Safety Rules:
     - Read-only patterns: *.json, *.yaml, .env*, config
@@ -17,8 +15,24 @@ Safety Rules:
     - Require approval for: __init__.py, conftest.py, settings.py
 """
 
-from src.local_agent.guardrails.validators import ScopeValidator, SAFEGUARD_RULES
-from src.local_agent.guardrails.filters import FileGuardrails
-from src.local_agent.guardrails.limits import ResourceLimiter
+from src.local_agent.guardrails.policy import (
+    GuardFinding,
+    check_final_answer,
+    check_observation,
+    check_tool_call,
+)
+from src.local_agent.guardrails.validators import (
+    FileGuardrails,
+    SAFEGUARD_RULES,
+    ScopeValidator,
+)
 
-__all__ = ["ScopeValidator", "SAFEGUARD_RULES", "FileGuardrails", "ResourceLimiter"]
+__all__ = [
+    "FileGuardrails",
+    "GuardFinding",
+    "SAFEGUARD_RULES",
+    "ScopeValidator",
+    "check_final_answer",
+    "check_observation",
+    "check_tool_call",
+]

@@ -8,9 +8,9 @@ Repo này ship **hai surface AI agent** chia theo run mode: một **local CLI** 
 | Surface | Run mode | Mục đích chính | Docs |
 |---|---|---|---|
 | **Local AI Agent (CLI)** | 100% local, Ollama, read-only | Hỏi-đáp về codebase ngay từ terminal, kèm citations | [docs/local_agent/](docs/local_agent/) |
-| **GitHub AI Agent (Web)** | FastAPI + Slack + CI/CD | Multi-agent issue / image / PR review qua Web/Slack | [docs/web_agent/README.md](docs/web_agent/README.md) |
+| **GitHub AI Agent (Web)** | FastAPI + GitHub Actions | Chat, issue/image analysis, PR automation | [docs/web_agent/README.md](docs/web_agent/README.md) |
 
-Mới đến repo? Hầu hết dev cần **Local AI Agent (CLI)** trước — đọc tiếp phần dưới. Đang tìm Web/Slack/CI? Sang [docs/web_agent/README.md](docs/web_agent/README.md). Là AI coding agent? Đọc [AGENTS.md](AGENTS.md) cho boundaries và module status.
+Mới đến repo? Hầu hết dev cần **Local AI Agent (CLI)** trước — đọc tiếp phần dưới. Đang tìm Web/GitHub Actions? Sang [docs/web_agent/README.md](docs/web_agent/README.md). Là AI coding agent? Đọc [AGENTS.md](AGENTS.md) cho boundaries và module status.
 
 ---
 
@@ -30,7 +30,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 # 2. Pull model + chạy Ollama
-ollama pull llama3:8b
+ollama pull llama3.2:3b
 ollama serve
 
 # 3. Build index cho repo (chạy lại mỗi khi code đổi nhiều)
@@ -41,7 +41,7 @@ python -m src.local_agent.cli query "What does LocalAgent.query do?"
 python -m src.local_agent.cli query --json "Where is the scheduler?"
 ```
 
-Model mặc định là `llama3:8b`, đổi được qua biến môi trường `LOCAL_AGENT_MODEL` hoặc cờ `--model`.
+Model mặc định lấy từ `configs/localagent.yaml` (`llama3.2:3b`), rồi có thể override bằng `LOCAL_AGENT_MODEL` hoặc `--model`.
 
 ### Docs
 
@@ -52,15 +52,15 @@ Model mặc định là `llama3:8b`, đổi được qua biến môi trường `
 ### Status
 
 - **V1 hoàn thành**: ingestion → indexing → retrieval → context → LLM → CLI, kèm citations + Markdown report.
-- **Test suite**: `pytest tests/local_agent/` xanh, trừ một parser failure đã biết từ trước (`test_method_decorators_captured`). E2E smoke test (`test_e2e_smoke.py`) tự skip khi chưa cài `faiss-cpu`.
+- **Test suite**: 254 passed, 6 skipped trên Python 3.10 (xác minh tháng 7/2026).
 - **Code path**: [src/local_agent/](src/local_agent/) — độc lập với web surface.
-- **Roadmap còn lại**: confidence scorer, read-only tools, planner — xem [GitHub Issues](https://github.com/t2m19102001/github-ai-agent/issues) (label `local-agent`).
+- **Roadmap còn lại**: confidence scorer, read-only tools và hybrid retrieval — xem [GitHub Issues](https://github.com/t2m19102001/github-ai-agent/issues) (label `local-agent`).
 
 ---
 
-## GitHub AI Agent (Web / Slack / CI)
+## GitHub AI Agent (Web / GitHub Actions)
 
-Multi-agent system với FastAPI backend, Slack bot, GitHub Actions integration, Docker deployment, và phân tích OCR / diagram.
+FastAPI backend, GitHub Actions integration, Docker deployment, và phân tích OCR / diagram. Slack chưa nằm trong source canonical.
 
 Toàn bộ docs (Features, API endpoints, Configuration, Deployment, Use cases): **[docs/web_agent/README.md](docs/web_agent/README.md)**.
 
@@ -72,7 +72,7 @@ Chạy ổn định trên localhost với defaults an toàn (mock LLM, SQLite �
 
 ```bash
 # 1. (tuỳ chọn) tạo .env localhost từ template
-cp .env.example .env   # mặc định đã có sẵn LLM_PROVIDER=mock, DATABASE_URL=sqlite
+cp .env.example .env   # mock LLM + SQLite; thay secrets trước production
 
 # 2. Boot web surface bằng 1 lệnh (có pre-flight check venv + port)
 bash scripts/run_web.sh                       # http://127.0.0.1:8000
