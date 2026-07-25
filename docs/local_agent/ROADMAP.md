@@ -64,7 +64,7 @@ LLM chủ động đọc thêm (read_file) khi context chưa đủ.
 | `core.py` (RAG) | ✅ Xong | `LocalAgent.query` chạy end-to-end |
 | `cli.py` | ✅ Xong | `index` / `query`; đã tách `--embed-model` vs `--model` + `--timeout` |
 | `tools/` + `agent_loop.py` | ✅ MỚI | tool-calling loop + tool `read_file` (read-only, chặn traversal) |
-| `memory/` | ✅ Persist | `storage.py` (SQLite) lưu turns; `agent` CLI có `--session` nhớ multi-turn |
+| `memory/` | ✅ Persist | `storage.py` (SQLite) + `pg_storage.py` (Postgres, cùng interface); `agent --session` nhớ multi-turn. `--session-db postgresql://...` → Postgres |
 | `guardrails/` | ✅ Wire (loop) | `policy.py` wire vào tool-loop: block tool-call nguy hiểm, warn answer-không-tool + prompt-injection. `validators.py` (FileGuardrails) giữ cho tương lai |
 | `planner/` + `integration/` | 🟡 Có wire | `LocalAgent.plan()` build PlanRequest (handoff SWE), chưa dùng thực tế |
 

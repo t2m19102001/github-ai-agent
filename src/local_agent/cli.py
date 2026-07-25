@@ -469,12 +469,25 @@ def _load_session(args):
     """Return (store, history). Both are None/empty when no --session given."""
     if not args.session:
         return None, None
-    from src.local_agent.memory.storage import SessionStore
-
-    store = SessionStore(args.session_db)
+    store = _make_store(args.session_db)
     turns = store.load_turns(args.session, limit=args.history_turns)
     history = [(t.role, t.content) for t in turns]
     return store, history
+
+
+def _make_store(session_db: str):
+    """Pick the backend from the --session-db value.
+
+    A ``postgresql://`` / ``postgres://`` URL → Postgres; anything else is
+    treated as a SQLite file path. Same store interface either way.
+    """
+    if session_db.startswith(("postgresql://", "postgres://")):
+        from src.local_agent.memory.pg_storage import PostgresSessionStore
+
+        return PostgresSessionStore(session_db)
+    from src.local_agent.memory.storage import SessionStore
+
+    return SessionStore(session_db)
 
 
 def _save_turn(store, session_id: str, question: str, answer: str) -> None:
