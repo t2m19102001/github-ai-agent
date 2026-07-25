@@ -3,6 +3,7 @@
 LLM Provider implementation for Ollama (Local)
 """
 
+import os
 import requests
 from typing import List, Dict, Optional
 from src.agents.base import LLMProvider
@@ -10,11 +11,14 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Default to a small model that runs on a plain CPU. Override with OLLAMA_MODEL.
+DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+
 
 class OllamaProvider(LLMProvider):
     """Ollama LLM Provider (Local)"""
-    
-    def __init__(self, model: str = "deepseek-coder-v2:16b-instruct-qat"):
+
+    def __init__(self, model: str = DEFAULT_OLLAMA_MODEL):
         super().__init__(name="Ollama", model=model)
         self.base_url = "http://localhost:11434"
     
