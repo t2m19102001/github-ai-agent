@@ -151,6 +151,46 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     query_p.add_argument("-v", "--verbose", action="store_true")
 
+    # ---- agent (tool-calling loop) ----
+    agent_p = subparsers.add_parser(
+        "agent",
+        help="Answer a question using the tool-calling loop (reads files/git).",
+        description=(
+            "Drive the LLM through a read-only tool-calling loop: it can list "
+            "files, read files, find symbols, and inspect git history."
+        ),
+    )
+    agent_p.add_argument(
+        "question",
+        type=str,
+        help="Natural-language task, e.g. 'read configs/localagent.yaml and ...'",
+    )
+    agent_p.add_argument(
+        "--model",
+        type=str,
+        default=DEFAULT_LLM_MODEL,
+        help=f"Ollama LLM model (default: {DEFAULT_LLM_MODEL}).",
+    )
+    agent_p.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_LLM_TIMEOUT,
+        help=f"Ollama request timeout in seconds (default: {DEFAULT_LLM_TIMEOUT}).",
+    )
+    agent_p.add_argument(
+        "--repo-root",
+        type=str,
+        default=".",
+        help="Repository root the tools operate within (default: current dir).",
+    )
+    agent_p.add_argument(
+        "--max-iters",
+        type=int,
+        default=4,
+        help="Maximum tool-calling turns before stopping (default: 4).",
+    )
+    agent_p.add_argument("-v", "--verbose", action="store_true")
+
     return parser
 
 
@@ -173,6 +213,8 @@ def main(
         return _cmd_index(args, out=out, err=err, pipeline=index_pipeline)
     if args.command == "query":
         return _cmd_query(args, out=out, err=err, agent_factory=agent_factory)
+    if args.command == "agent":
+        return _cmd_agent(args, out=out, err=err)
 
     err.write(f"Error: unknown command {args.command!r}\n")
     return 1
@@ -330,6 +372,49 @@ def _cmd_query(args, *, out, err, agent_factory: AgentFactory | None) -> int:
         out.write(_format_json(response) + "\n")
     else:
         out.write(_format_human(response, verbose=args.verbose) + "\n")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Subcommand: agent (tool-calling loop)
+# ---------------------------------------------------------------------------
+
+
+def _cmd_agent(args, *, out, err) -> int:
+    from src.local_agent.agent_loop import ToolCallingAgent, build_default_registry
+
+    repo_root = Path(args.repo_root).expanduser().resolve()
+    if not repo_root.is_dir():
+        err.write(f"Error: repo-root is not a directory: {repo_root}\n")
+        return 2
+
+    llm = _OllamaAdapter(model_name=args.model, timeout=args.timeout)
+    registry = build_default_registry(repo_root)
+    agent = ToolCallingAgent(llm, registry, max_iters=args.max_iters)
+
+    try:
+        result = agent.run(args.question)
+    except ValueError as error:
+        err.write(f"Error: {error}\n")
+        return 2
+    except Exception as error:
+        err.write(f"Error: agent failed: {error}\n")
+        if _debug_enabled(args.verbose):
+            import traceback
+
+            traceback.print_exc(file=err)
+        return 1
+
+    if args.verbose:
+        out.write("Steps:\n")
+        for i, step in enumerate(result.steps, start=1):
+            preview = (step.tool_output or "").splitlines()[:1]
+            snippet = f" -> {preview[0][:60]}" if preview else ""
+            out.write(f"  {i}. {step.kind}: {step.detail[:60]}{snippet}\n")
+        out.write(f"  (stopped: {result.stopped_reason})\n\n")
+
+    out.write("Answer:\n")
+    out.write(f"  {result.answer}\n")
     return 0
 
 

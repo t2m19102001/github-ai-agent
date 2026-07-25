@@ -28,8 +28,14 @@ import json
 import re
 from dataclasses import dataclass, field
 
+from pathlib import Path
+
 from src.local_agent.core import LLMClientProtocol
 from src.local_agent.tools.base import ToolRegistry, ToolResult
+from src.local_agent.tools.code_query import CodeQueryTool
+from src.local_agent.tools.file_reader import FileReaderTool
+from src.local_agent.tools.git_reader import GitReaderTool
+from src.local_agent.tools.list_files import ListFilesTool
 
 _DEFAULT_MAX_ITERS = 4
 
@@ -160,4 +166,23 @@ def _parse_decision(raw: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-__all__ = ["LoopResult", "LoopStep", "ToolCallingAgent"]
+def build_default_registry(repo_root: Path | str) -> ToolRegistry:
+    """Registry with every read-only tool wired to ``repo_root``.
+
+    Central place the CLI (and any caller) uses so the tool set stays
+    consistent everywhere.
+    """
+    registry = ToolRegistry()
+    registry.register(ListFilesTool(repo_root))
+    registry.register(FileReaderTool(repo_root))
+    registry.register(CodeQueryTool(repo_root))
+    registry.register(GitReaderTool(repo_root))
+    return registry
+
+
+__all__ = [
+    "LoopResult",
+    "LoopStep",
+    "ToolCallingAgent",
+    "build_default_registry",
+]
