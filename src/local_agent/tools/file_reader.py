@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.local_agent.tools.base import ToolResult
+from src.local_agent.tools.base import ToolResult, is_within
 
 # Cap the returned text so a huge file cannot blow the LLM context window.
 _MAX_CHARS = 20_000
@@ -38,7 +38,7 @@ class FileReaderTool:
 
         # Resolve the target and confirm it stays within the repo root.
         target = (self.repo_root / raw_path).resolve()
-        if not _is_within(self.repo_root, target):
+        if not is_within(self.repo_root, target):
             return ToolResult.failure(
                 f"path escapes repository root: {raw_path!r}"
             )
@@ -53,15 +53,6 @@ class FileReaderTool:
         if len(text) > _MAX_CHARS:
             text = text[:_MAX_CHARS] + "\n... (truncated)"
         return ToolResult.success(text)
-
-
-def _is_within(root: Path, candidate: Path) -> bool:
-    """True if ``candidate`` is ``root`` itself or lives beneath it."""
-    try:
-        candidate.relative_to(root)
-        return True
-    except ValueError:
-        return False
 
 
 __all__ = ["FileReaderTool"]

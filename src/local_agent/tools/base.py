@@ -20,7 +20,22 @@ Design rules (kept deliberately strict for a learning codebase):
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol, runtime_checkable
+
+
+def is_within(root: Path, candidate: Path) -> bool:
+    """True if ``candidate`` is ``root`` itself or lives beneath it.
+
+    The single path-safety guard shared by every file-touching tool: resolve
+    both paths first, then confirm the target has not escaped the repo root
+    (blocks ``../`` traversal and absolute paths outside the repo).
+    """
+    try:
+        candidate.relative_to(root)
+        return True
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -91,4 +106,4 @@ class ToolRegistry:
         return "\n".join(lines)
 
 
-__all__ = ["Tool", "ToolRegistry", "ToolResult"]
+__all__ = ["Tool", "ToolRegistry", "ToolResult", "is_within"]
