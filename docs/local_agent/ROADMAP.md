@@ -65,7 +65,7 @@ LLM chủ động đọc thêm (read_file) khi context chưa đủ.
 | `cli.py` | ✅ Xong | `index` / `query`; đã tách `--embed-model` vs `--model` + `--timeout` |
 | `tools/` + `agent_loop.py` | ✅ MỚI | tool-calling loop + tool `read_file` (read-only, chặn traversal) |
 | `memory/` | ✅ Persist | `storage.py` (SQLite) lưu turns; `agent` CLI có `--session` nhớ multi-turn |
-| `guardrails/validators.py` | 🟡 Chưa wire | code thật nhưng **chưa gắn** vào core/loop |
+| `guardrails/` | ✅ Wire (loop) | `policy.py` wire vào tool-loop: block tool-call nguy hiểm, warn answer-không-tool + prompt-injection. `validators.py` (FileGuardrails) giữ cho tương lai |
 | `planner/` + `integration/` | 🟡 Có wire | `LocalAgent.plan()` build PlanRequest (handoff SWE), chưa dùng thực tế |
 
 Cấu hình tập trung: `configs/localagent.yaml` (model, timeout, embedding, paths).
@@ -108,10 +108,15 @@ python -m src.local_agent.cli agent "câu hỏi cần đọc file/git"
 - CLI: `agent --session <id>` nhớ qua nhiều lần chạy (`--session-db`,
   `--history-turns`).
 
-### Bước D — Guardrails wiring
-Gắn `guardrails/validators.py` vào output của loop/planner (chặn câu trả lời
-không có citation, chặn action nguy hiểm).
-*Lý do:* an toàn & tin cậy — thứ phân biệt agent đồ chơi với agent dùng được.
+### Bước D — Guardrails wiring ✅ XONG
+- `guardrails/policy.py`: guard tuned cho agent read-only —
+  `check_tool_call` (block path tuyệt đối/traversal, git action ngoài
+  whitelist), `check_final_answer` (warn answer không dựa trên tool),
+  `check_observation` (warn prompt-injection trong file đọc được).
+- Wire vào `agent_loop.py`: block tool-call nặng trước khi chạy; gắn
+  `LoopResult.warnings` cho vi phạm nhẹ; CLI in "Guardrail warnings".
+- `validators.py` (FileGuardrails) giữ nguyên cho tương lai (khi agent có
+  thể ghi/suggest file).
 
 ### Bước E — Hybrid retrieval (tùy chọn, nâng cao)
 Thêm BM25 (sparse) vào retrieval (hiện chỉ dense) như config đã khai báo.

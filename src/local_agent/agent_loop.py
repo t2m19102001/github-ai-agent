@@ -31,6 +31,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.local_agent.core import LLMClientProtocol
+from src.local_agent.guardrails.policy import (
+    check_final_answer,
+    check_observation,
+    check_tool_call,
+)
 from src.local_agent.tools.base import ToolRegistry, ToolResult
 from src.local_agent.tools.code_query import CodeQueryTool
 from src.local_agent.tools.file_reader import FileReaderTool
@@ -70,6 +75,9 @@ class LoopResult:
     answer: str
     steps: list[LoopStep] = field(default_factory=list)
     stopped_reason: str = "final"  # "final" | "max_iters"
+    # Non-blocking guardrail flags raised during the run (e.g. ungrounded
+    # answer, possible prompt-injection in a tool's output).
+    warnings: list[str] = field(default_factory=list)
 
 
 class ToolCallingAgent:
@@ -108,6 +116,8 @@ class ToolCallingAgent:
         # asking for the same read cannot spin — we short-circuit the repeat and
         # nudge it to answer instead of burning the whole step budget.
         seen_calls: set[str] = set()
+        warnings: list[str] = []
+        tool_calls_made = 0
 
         for _ in range(self.max_iters):
             raw = self.llm.generate(
@@ -129,13 +139,33 @@ class ToolCallingAgent:
 
             if "final" in decision:
                 answer = str(decision["final"]).strip()
+                # Guardrail: warn if the answer is not grounded in any tool run.
+                grounded = check_final_answer(answer, tool_calls_made)
+                if not grounded.ok:
+                    warnings.append(grounded.message)
                 steps.append(LoopStep(kind="final", detail=answer))
-                return LoopResult(answer=answer, steps=steps, stopped_reason="final")
+                return LoopResult(
+                    answer=answer,
+                    steps=steps,
+                    stopped_reason="final",
+                    warnings=warnings,
+                )
 
             # Otherwise it's a tool call.
             tool_name = str(decision.get("tool", ""))
             tool_args = decision.get("args") or {}
             call_key = tool_name + json.dumps(tool_args, sort_keys=True)
+
+            # Guardrail: block a clearly unsafe tool call before it runs.
+            guard = check_tool_call(tool_name, tool_args)
+            if guard.block:
+                warnings.append(guard.message)
+                steps.append(LoopStep(kind="error", detail=f"blocked:{tool_name}"))
+                transcript += (
+                    f"\nSystem: That tool call was blocked ({guard.message}). "
+                    "Choose a safe action or give a final answer.\n"
+                )
+                continue
 
             if call_key in seen_calls:
                 # Repeat of an earlier identical call — don't run it again; the
@@ -150,9 +180,14 @@ class ToolCallingAgent:
 
             seen_calls.add(call_key)
             result = self._run_tool(tool_name, tool_args)
+            tool_calls_made += 1
             steps.append(
                 LoopStep(kind="tool", detail=tool_name, tool_output=result.content)
             )
+            # Guardrail: flag possible prompt-injection in the tool's output.
+            injection = check_observation(result.content)
+            if not injection.ok:
+                warnings.append(injection.message)
             status = "OK" if result.ok else "ERROR"
             transcript += (
                 f"\nAction: called {tool_name} with {json.dumps(tool_args)}\n"
@@ -164,6 +199,7 @@ class ToolCallingAgent:
             answer="I could not complete the task within the step budget.",
             steps=steps,
             stopped_reason="max_iters",
+            warnings=warnings,
         )
 
     def _run_tool(self, name: str, args: dict) -> ToolResult:

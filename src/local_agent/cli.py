@@ -440,6 +440,10 @@ def _cmd_agent(args, *, out, err) -> int:
 
     out.write("Answer:\n")
     out.write(f"  {result.answer}\n")
+    if result.warnings:
+        out.write("\nGuardrail warnings:\n")
+        for w in result.warnings:
+            out.write(f"  ! {w}\n")
     return 0
 
 

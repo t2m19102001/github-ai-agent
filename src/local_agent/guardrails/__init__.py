@@ -15,10 +15,24 @@ Safety Rules:
     - Require approval for: __init__.py, conftest.py, settings.py
 """
 
+from src.local_agent.guardrails.policy import (
+    GuardFinding,
+    check_final_answer,
+    check_observation,
+    check_tool_call,
+)
 from src.local_agent.guardrails.validators import (
     FileGuardrails,
     SAFEGUARD_RULES,
     ScopeValidator,
 )
 
-__all__ = ["ScopeValidator", "SAFEGUARD_RULES", "FileGuardrails"]
+__all__ = [
+    "FileGuardrails",
+    "GuardFinding",
+    "SAFEGUARD_RULES",
+    "ScopeValidator",
+    "check_final_answer",
+    "check_observation",
+    "check_tool_call",
+]
