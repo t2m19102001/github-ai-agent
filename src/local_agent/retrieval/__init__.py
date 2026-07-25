@@ -15,6 +15,8 @@ from src.local_agent.retrieval.retriever import (
     RetrievalResult,
     RetrievalSource,
 )
+from src.local_agent.retrieval.hybrid import HybridRetriever
+from src.local_agent.retrieval.sparse import BM25Index
 from src.local_agent.retrieval.context_builder import (
     ContextBuilder,
     ContextMetadata,
@@ -22,7 +24,9 @@ from src.local_agent.retrieval.context_builder import (
 )
 
 __all__ = [
+    "BM25Index",
     "BasicRetriever",
+    "HybridRetriever",
     "RetrievalResult",
     "RetrievalSource",
     "ContextBuilder",
