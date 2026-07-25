@@ -44,9 +44,13 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Available tools:\n{menu}\n\n"
     "On EVERY turn reply with exactly ONE JSON object and nothing else.\n"
     "To call a tool:  {{\"tool\": \"<name>\", \"args\": {{...}}}}\n"
-    "To finish:       {{\"final\": \"<your answer>\"}}\n"
-    "Call a tool only when you need more information. Prefer to finish once you "
-    "can answer. Never invent file paths you have not seen."
+    "To finish:       {{\"final\": \"<your answer>\"}}\n\n"
+    "Rules:\n"
+    "- If a previous Observation already contains the information you need, you "
+    "MUST reply with a final answer now. Do NOT call a tool again.\n"
+    "- Never call the same tool with the same arguments twice.\n"
+    "- Call a tool only to get information you do not already have.\n"
+    "- Never invent file paths you have not seen."
 )
 
 
@@ -89,6 +93,10 @@ class ToolCallingAgent:
         # The transcript is the agent's growing short-term memory for this task.
         transcript = f"Question: {question}\n"
         steps: list[LoopStep] = []
+        # Remember every (tool, args) already run so a small model that keeps
+        # asking for the same read cannot spin — we short-circuit the repeat and
+        # nudge it to answer instead of burning the whole step budget.
+        seen_calls: set[str] = set()
 
         for _ in range(self.max_iters):
             raw = self.llm.generate(
@@ -116,6 +124,20 @@ class ToolCallingAgent:
             # Otherwise it's a tool call.
             tool_name = str(decision.get("tool", ""))
             tool_args = decision.get("args") or {}
+            call_key = tool_name + json.dumps(tool_args, sort_keys=True)
+
+            if call_key in seen_calls:
+                # Repeat of an earlier identical call — don't run it again; the
+                # result is already in the transcript. Push back and let the
+                # model answer.
+                steps.append(LoopStep(kind="error", detail=f"repeat:{tool_name}"))
+                transcript += (
+                    "\nSystem: You already ran that exact tool call; its result "
+                    "is above. Do not repeat it — reply with a final answer.\n"
+                )
+                continue
+
+            seen_calls.add(call_key)
             result = self._run_tool(tool_name, tool_args)
             steps.append(
                 LoopStep(kind="tool", detail=tool_name, tool_output=result.content)

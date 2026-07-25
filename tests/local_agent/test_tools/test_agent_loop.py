@@ -121,9 +121,30 @@ def test_loop_reports_unknown_tool(repo: Path) -> None:
     assert "unknown tool" in llm.prompts[1]
 
 
+def test_loop_short_circuits_repeated_tool_call(repo: Path) -> None:
+    # Model asks for the identical read twice, then finishes. The second
+    # identical call must NOT re-run the tool; it's pushed back as an error step.
+    llm = _ScriptedLLM(
+        [
+            '{"tool": "read_file", "args": {"path": "hello.py"}}',
+            '{"tool": "read_file", "args": {"path": "hello.py"}}',
+            '{"final": "done reading"}',
+        ]
+    )
+    result = ToolCallingAgent(llm, _registry(repo)).run("q")
+    assert result.answer == "done reading"
+    kinds = [s.kind for s in result.steps]
+    assert kinds == ["tool", "error", "final"]
+    assert result.steps[1].detail == "repeat:read_file"
+
+
 def test_loop_stops_at_max_iters(repo: Path) -> None:
     # Always asks for a tool, never finishes → must hit the cap and stop.
-    llm = _ScriptedLLM(['{"tool": "read_file", "args": {"path": "hello.py"}}'] * 10)
+    # Distinct paths each turn so every call is a genuine (non-repeat) tool run
+    # and the loop stops only because it hits the iteration cap.
+    llm = _ScriptedLLM(
+        [f'{{"tool": "read_file", "args": {{"path": "f{i}.py"}}}}' for i in range(10)]
+    )
     result = ToolCallingAgent(llm, _registry(repo), max_iters=3).run("q")
     assert result.stopped_reason == "max_iters"
     assert len([s for s in result.steps if s.kind == "tool"]) == 3
